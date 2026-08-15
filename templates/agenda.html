@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Mi agenda — Looks{% endblock %}
+{% block top_actions %}
+  <button onclick="logout()">Salir</button>
+{% endblock %}
+
+{% block content %}
+<main>
+  <div class="wrap">
+    <section class="section-tight">
+      <div class="section-head">
+        <h2 id="titulo-agenda">Mi agenda</h2>
+        <p>Tus turnos del día que elijas, para organizarte. Para cancelar, reprogramar o marcar un turno como atendido, avisale al encargado.</p>
+      </div>
+
+      <div class="control-mesa">
+        <input type="date" id="input-fecha-agenda" onchange="cambiarFecha(this.value)">
+      </div>
+
+      <div id="tabla-agenda" class="tabla-turnos"></div>
+    </section>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/agenda.js') }}"></script>
+{% endblock %}

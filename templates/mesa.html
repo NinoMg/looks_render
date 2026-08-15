@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Mesa de entrada — Looks{% endblock %}
+{% block top_actions %}
+  <a href="/">Ver como cliente</a>
+  <button onclick="logout()">Salir</button>
+{% endblock %}
+
+{% block content %}
+<main>
+  <div class="wrap">
+    <section class="section-tight">
+      <div class="section-head">
+        <h2>Mesa de entrada</h2>
+        <p>Todo lo que reservan los peluqueros, en un solo lugar.</p>
+      </div>
+
+      <div class="tabs">
+        <button id="tab-turnos" class="active" onclick="cambiarTab('turnos')">Turnos</button>
+        <button id="tab-peluqueros" onclick="cambiarTab('peluqueros')">Peluqueros</button>
+      </div>
+
+      <div id="vista-turnos">
+        <div class="control-mesa">
+          <div class="toggle-local">
+            <button id="switch-local" class="switch" onclick="toggleLocal()" aria-label="Abrir o cerrar el local"></button>
+            <div>
+              <div id="control-local-texto" style="font-weight:500;">…</div>
+              <div style="font-size:.8rem;color:rgba(27,25,38,.55);">Si lo cerrás, no se pueden confirmar turnos nuevos.</div>
+            </div>
+          </div>
+          <input type="date" id="input-fecha-mesa" onchange="cambiarFechaMesa(this.value)">
+        </div>
+
+        <div id="stats-row" class="stats-row"></div>
+        <div id="tabla-turnos" class="tabla-turnos"></div>
+      </div>
+
+      <div id="vista-peluqueros" style="display:none;">
+        <div id="lista-peluqueros"></div>
+        <div class="section-head" style="margin-top:30px;"><h2 style="font-size:1.2rem;">Agregar peluquero</h2></div>
+        <form class="form-nuevo-peluquero" id="form-nuevo-peluquero" onsubmit="return crearPeluquero(event)">
+          <label>ID único (sin espacios) <input type="text" id="np-id" required placeholder="ej: sofia"></label>
+          <label>Nombre completo <input type="text" id="np-nombre" required placeholder="ej: Sofía Nieva"></label>
+          <label>Especialidad <input type="text" id="np-especialidad" placeholder="ej: Cortes de tijera"></label>
+          <label>Color de tarjeta
+            <select id="np-color"><option value="pink">Rosa</option><option value="cyan">Cyan</option><option value="navy">Navy</option></select>
+          </label>
+          <label>Hora inicio <input type="time" id="np-hora-inicio" value="10:00" required></label>
+          <label>Hora fin <input type="time" id="np-hora-fin" value="19:00" required></label>
+          <label>Pausa desde (opcional) <input type="time" id="np-pausa-inicio"></label>
+          <label>Pausa hasta (opcional) <input type="time" id="np-pausa-fin"></label>
+          <div class="full">
+            <div style="font-size:.8rem;color:rgba(27,25,38,.6);margin-bottom:6px;">Días de atención</div>
+            <div class="full" id="np-dias-checks" style="display:flex;gap:12px;flex-wrap:wrap;font-size:.85rem;"></div>
+          </div>
+          <label>Usuario para su agenda (opcional) <input type="text" id="np-username" placeholder="ej: sofia"></label>
+          <label>Contraseña (opcional) <input type="password" id="np-password"></label>
+          <div id="mensaje-nuevo-peluquero" class="full"></div>
+          <button class="btn btn-primary full" type="submit">Crear peluquero</button>
+        </form>
+      </div>
+    </section>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/mesa.js') }}"></script>
+{% endblock %}

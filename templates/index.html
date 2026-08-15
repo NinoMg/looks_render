@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Looks — Reservá con tu peluquero{% endblock %}
+
+{% block top_actions %}
+  <a href="/mi-turno">Mi turno</a>
+  <a href="/login">Ingresar</a>
+{% endblock %}
+
+{% block content %}
+<main id="vista-cliente">
+  <div class="hero">
+    <div class="wrap hero-inner">
+      <div class="hero-copy">
+        <span class="eyebrow">Turnos online · Looks</span>
+        <h1>Elegí tu estilo,<br><em>a tu medida.</em></h1>
+        <p>Cada peluquero de Looks maneja su propia agenda, sus precios y sus tiempos. Elegís, reservás y listo.</p>
+        <div class="dim-line">
+          <span class="tick"></span><span class="line"></span>
+          <span class="label">Estilo propio</span>
+          <span class="line"></span><span class="tick"></span>
+        </div>
+        <span id="status-pill" class="status-pill">
+          <span class="status-dot"></span>
+          <span id="status-texto">Consultando…</span>
+        </span>
+      </div>
+      <div class="logo-sticker"><img src="{{ url_for('fotos', filename='looks_logo.png') }}" alt="Looks"></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <section id="seccion-peluqueros" class="section-tight">
+      <div class="section-head">
+        <h2>Elegí tu peluquero</h2>
+        <p>Cada uno con su estilo, sus precios y su disponibilidad.</p>
+      </div>
+      <div id="grid-peluqueros" class="grid-peluqueros">
+        <p class="sin-horarios">Cargando peluqueros…</p>
+      </div>
+    </section>
+
+    <section id="seccion-reserva" class="section-tight" style="display:none;">
+      <div id="panel-reserva"></div>
+    </section>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/cliente.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Looks{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Space+Mono:wght@400;700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<header class="top">
+  <div class="top-inner">
+    <a class="brand-link" href="/">
+      <div class="brand-mark"><img src="{{ url_for('fotos', filename='looks_logo.png') }}" alt="Looks"></div>
+      <span class="brand-name">Looks</span>
+    </a>
+    <div class="top-actions">
+      {% block top_actions %}{% endblock %}
+    </div>
+  </div>
+</header>
+
+{% block content %}{% endblock %}
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

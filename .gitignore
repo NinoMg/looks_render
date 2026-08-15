@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+looks.db
+.env
+venv/
+.venv/
