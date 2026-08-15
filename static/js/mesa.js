@@ -45,7 +45,27 @@ async function toggleLocal() {
   renderEstadoLocal();
 }
 
-// ---------------- turnos del día ----------------
+// ---------------- turnos del día / semana ----------------
+let vistaTurnos = 'dia';
+let semanaDesde = lunesDeEstaSemana(state.fecha);
+
+function lunesDeEstaSemana(fechaISO) {
+  const d = new Date(fechaISO + 'T00:00:00');
+  const diaIso = (d.getDay() + 6) % 7; // 0 = lunes ... 6 = domingo
+  d.setDate(d.getDate() - diaIso);
+  return d.toISOString().slice(0, 10);
+}
+
+function cambiarVistaTurnos(v) {
+  vistaTurnos = v;
+  $('#vista-dia-btn').classList.toggle('active', v === 'dia');
+  $('#vista-semana-btn').classList.toggle('active', v === 'semana');
+  $('#vista-dia-turnos').style.display = v === 'dia' ? 'block' : 'none';
+  $('#vista-semana-turnos').style.display = v === 'semana' ? 'block' : 'none';
+  $('#input-fecha-mesa').style.display = v === 'dia' ? 'inline-block' : 'none';
+  if (v === 'semana') cargarSemana();
+}
+
 async function cambiarFechaMesa(valor) {
   state.fecha = valor;
   await cargarTurnos();
@@ -55,6 +75,88 @@ async function cargarTurnos() {
   const { turnos, stats } = await api(`/api/mesa/turnos?fecha=${state.fecha}`);
   renderStats(stats, turnos);
   renderTabla(turnos);
+}
+
+function semanaAnterior() {
+  const d = new Date(semanaDesde + 'T00:00:00');
+  d.setDate(d.getDate() - 7);
+  semanaDesde = d.toISOString().slice(0, 10);
+  cargarSemana();
+}
+
+function semanaSiguiente() {
+  const d = new Date(semanaDesde + 'T00:00:00');
+  d.setDate(d.getDate() + 7);
+  semanaDesde = d.toISOString().slice(0, 10);
+  cargarSemana();
+}
+
+async function cargarSemana() {
+  const r = await api(`/api/mesa/turnos-semana?desde=${semanaDesde}`);
+  semanaDesde = r.desde; // el backend normaliza al lunes
+  renderSemana(r);
+}
+
+function fmtFechaCorta(iso) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+}
+
+function renderSemana(r) {
+  const NOMBRES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  const dias = [];
+  const base = new Date(r.desde + 'T00:00:00');
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(base);
+    d.setDate(base.getDate() + i);
+    dias.push(d.toISOString().slice(0, 10));
+  }
+  $('#rango-semana').textContent = `${fmtFechaCorta(r.desde)} – ${fmtFechaCorta(r.hasta)}`;
+
+  const porCelda = {};
+  r.turnos.forEach(t => {
+    const key = `${t.peluquero_id}_${t.fecha}`;
+    (porCelda[key] = porCelda[key] || []).push(t);
+  });
+
+  let html = `<div class="grilla-semana-header"><div></div>`;
+  dias.forEach((f, i) => {
+    const num = Number(f.slice(8, 10));
+    const esHoy = f === hoyISO();
+    html += `<div class="celda-dia-header" style="${esHoy ? 'box-shadow:0 0 0 2px var(--pink) inset;' : ''}">${NOMBRES[i]}<div class="num">${num}</div></div>`;
+  });
+  html += `</div>`;
+
+  if (!r.peluqueros.length) {
+    $('#grilla-semana').innerHTML = html + `</div><p class="sin-horarios">No hay peluqueros activos.</p>`;
+    return;
+  }
+
+  r.peluqueros.forEach(p => {
+    html += `<div class="grilla-semana-fila">`;
+    html += `<div class="celda-peluquero-nombre"><span class="tag-peluquero ${esc(p.color)}">${esc(p.nombre)}</span></div>`;
+    dias.forEach(f => {
+      const jsDay = new Date(f + 'T00:00:00').getDay();
+      const diaIso = (jsDay + 6) % 7;
+      const atiende = (p.dias_atencion || []).includes(diaIso);
+      const turnos = porCelda[`${p.id}_${f}`] || [];
+
+      if (!atiende) {
+        html += `<div class="celda-turno-dia celda-no-atiende">no atiende</div>`;
+      } else if (!turnos.length) {
+        html += `<div class="celda-turno-dia"><span class="celda-vacia">libre</span></div>`;
+      } else {
+        html += `<div class="celda-turno-dia">`;
+        turnos.slice(0, 4).forEach(t => {
+          html += `<div class="chip-turno ${esc(t.estado)}" title="${esc(t.servicio)}"><span class="hora-chip">${esc(t.hora)}</span> ${esc(t.cliente.split(' ')[0])}</div>`;
+        });
+        if (turnos.length > 4) html += `<div class="chip-mas">+${turnos.length - 4} más</div>`;
+        html += `</div>`;
+      }
+    });
+    html += `</div>`;
+  });
+
+  $('#grilla-semana').innerHTML = html;
 }
 
 function renderStats(stats, turnos) {

@@ -28,11 +28,30 @@
               <div style="font-size:.8rem;color:rgba(27,25,38,.55);">Si lo cerrás, no se pueden confirmar turnos nuevos.</div>
             </div>
           </div>
-          <input type="date" id="input-fecha-mesa" onchange="cambiarFechaMesa(this.value)">
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <div class="tabs" style="margin:0;">
+              <button id="vista-dia-btn" class="active" onclick="cambiarVistaTurnos('dia')">Día</button>
+              <button id="vista-semana-btn" onclick="cambiarVistaTurnos('semana')">Semana</button>
+            </div>
+            <input type="date" id="input-fecha-mesa" onchange="cambiarFechaMesa(this.value)">
+          </div>
         </div>
 
-        <div id="stats-row" class="stats-row"></div>
-        <div id="tabla-turnos" class="tabla-turnos"></div>
+        <div id="vista-dia-turnos">
+          <div id="stats-row" class="stats-row"></div>
+          <div id="tabla-turnos" class="tabla-turnos"></div>
+        </div>
+
+        <div id="vista-semana-turnos" style="display:none;">
+          <div class="nav-semana">
+            <button onclick="semanaAnterior()">‹ Semana anterior</button>
+            <strong id="rango-semana"></strong>
+            <button onclick="semanaSiguiente()">Semana siguiente ›</button>
+          </div>
+          <div style="overflow-x:auto;padding-bottom:6px;">
+            <div id="grilla-semana"></div>
+          </div>
+        </div>
       </div>
 
       <div id="vista-peluqueros" style="display:none;">

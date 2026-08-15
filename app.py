@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import datetime, date as date_cls
+from datetime import datetime, date as date_cls, timedelta
 from functools import wraps
 
 from flask import Flask, request, jsonify, session, render_template, redirect, url_for, send_from_directory, Response
@@ -270,6 +270,28 @@ def api_mesa_turnos():
             'total': len(turnos),
             'ingreso_estimado': sum(t.precio or 0 for t in activos),
         },
+    })
+
+
+@app.get('/api/mesa/turnos-semana')
+@admin_required
+def api_mesa_turnos_semana():
+    """Todos los turnos de todos los peluqueros para una semana completa
+    (lunes a domingo), para la vista de grilla semanal."""
+    referencia = _parse_fecha(request.args.get('desde', '')) or date_cls.today()
+    desde = referencia - timedelta(days=referencia.weekday())  # lunes de esa semana
+    hasta = desde + timedelta(days=6)
+
+    turnos = Turno.query.filter(
+        Turno.fecha >= desde, Turno.fecha <= hasta,
+    ).order_by(Turno.fecha, Turno.hora_inicio).all()
+    peluqueros = Peluquero.query.filter_by(activo=True).order_by(Peluquero.nombre).all()
+
+    return jsonify({
+        'desde': desde.isoformat(),
+        'hasta': hasta.isoformat(),
+        'peluqueros': [p.to_dict(incluir_servicios=False) for p in peluqueros],
+        'turnos': [t.to_dict() for t in turnos],
     })
 
 
