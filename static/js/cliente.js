@@ -59,7 +59,7 @@ function renderPeluqueros() {
       <div class="foto-wrap ${p.color}">
         <span class="numero">N.° ${String(i + 1).padStart(2, '0')}</span>
         <div class="badge-logo"><img src="/fotos/looks_logo.png" alt="Looks"></div>
-        ${p.foto ? `<img src="/fotos/${esc(p.foto)}" alt="${esc(p.nombre)}">` : `<div class="foto-placeholder">${esc(p.iniciales)}</div>`}
+        ${p.foto_url ? `<img src="${esc(p.foto_url)}" alt="${esc(p.nombre)}">` : `<div class="foto-placeholder">${esc(p.iniciales)}</div>`}
         <div class="shine"></div>
       </div>
       <div class="nameplate">

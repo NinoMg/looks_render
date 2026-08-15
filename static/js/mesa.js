@@ -4,7 +4,9 @@ function esc(str) { const d = document.createElement('div'); d.textContent = str
 function hoyISO() { return new Date().toISOString().slice(0, 10); }
 
 async function api(path, opts = {}) {
-  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', ...opts });
+  const esFormData = opts.body instanceof FormData;
+  const headers = esFormData ? {} : { 'Content-Type': 'application/json' };
+  const res = await fetch(path, { headers, credentials: 'same-origin', ...opts });
   if (res.status === 401) { window.location.href = '/login'; throw new Error('Sesión vencida'); }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Error de red');
@@ -121,10 +123,15 @@ function renderPeluqueros() {
   $('#lista-peluqueros').innerHTML = state.peluqueros.map(p => `
     <div class="gestion-peluquero">
       <div class="gestion-peluquero-head">
-        <div>
-          <strong>${esc(p.nombre)}</strong>
-          <span class="especialidad"> · ${esc(p.especialidad)}</span>
-          <div class="dias-badge" style="text-align:left;margin-top:4px;">${esc(p.dias)} · ${esc(p.horario_texto)}${p.tiene_login ? ' · con acceso a agenda propia' : ''}</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          ${p.foto_url
+            ? `<img src="${esc(p.foto_url)}" alt="" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
+            : `<div class="avatar ${esc(p.color)}" style="width:44px;height:44px;font-size:.9rem;flex-shrink:0;">${esc(p.iniciales)}</div>`}
+          <div>
+            <strong>${esc(p.nombre)}</strong>
+            <span class="especialidad"> · ${esc(p.especialidad)}</span>
+            <div class="dias-badge" style="text-align:left;margin-top:4px;">${esc(p.dias)} · ${esc(p.horario_texto)}${p.tiene_login ? ' · con acceso a agenda propia' : ''}</div>
+          </div>
         </div>
         <div class="fila-acciones">
           <button onclick="borrarPeluquero('${p.id}')">Eliminar</button>
@@ -139,8 +146,25 @@ function renderPeluqueros() {
         <input type="number" placeholder="Precio" class="srv-precio" required min="0" style="flex:1;padding:7px;border-radius:6px;border:1px solid var(--line);">
         <button class="btn btn-ghost btn-sm" type="submit">+ Servicio</button>
       </form>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+        <input type="file" accept="image/jpeg,image/png,image/webp" id="foto-${p.id}" style="font-size:.75rem;max-width:200px;">
+        <button class="btn btn-ghost btn-sm" type="button" onclick="subirFoto('${p.id}')">${p.foto_url ? 'Cambiar foto' : 'Subir foto'}</button>
+      </div>
     </div>
   `).join('');
+}
+
+async function subirFoto(id) {
+  const input = document.getElementById(`foto-${id}`);
+  if (!input.files[0]) return;
+  const fd = new FormData();
+  fd.append('foto', input.files[0]);
+  try {
+    await api(`/api/mesa/peluqueros/${id}`, { method: 'PUT', body: fd });
+    await cargarPeluqueros();
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 async function borrarPeluquero(id) {
@@ -172,23 +196,24 @@ async function crearPeluquero(e) {
   const msg = $('#mensaje-nuevo-peluquero');
   msg.innerHTML = '';
   const dias = Array.from(document.querySelectorAll('#np-dias-checks input:checked')).map(c => Number(c.value));
+
+  const fd = new FormData();
+  fd.append('id', $('#np-id').value.trim().toLowerCase());
+  fd.append('nombre', $('#np-nombre').value.trim());
+  fd.append('especialidad', $('#np-especialidad').value.trim());
+  fd.append('color', $('#np-color').value);
+  fd.append('hora_inicio', $('#np-hora-inicio').value);
+  fd.append('hora_fin', $('#np-hora-fin').value);
+  if ($('#np-pausa-inicio').value) fd.append('pausa_inicio', $('#np-pausa-inicio').value);
+  if ($('#np-pausa-fin').value) fd.append('pausa_fin', $('#np-pausa-fin').value);
+  fd.append('dias_atencion', JSON.stringify(dias));
+  if ($('#np-username').value.trim()) fd.append('username', $('#np-username').value.trim());
+  if ($('#np-password').value) fd.append('password', $('#np-password').value);
+  const fotoInput = $('#np-foto');
+  if (fotoInput.files[0]) fd.append('foto', fotoInput.files[0]);
+
   try {
-    await api('/api/mesa/peluqueros', {
-      method: 'POST',
-      body: JSON.stringify({
-        id: $('#np-id').value.trim().toLowerCase(),
-        nombre: $('#np-nombre').value.trim(),
-        especialidad: $('#np-especialidad').value.trim(),
-        color: $('#np-color').value,
-        hora_inicio: $('#np-hora-inicio').value,
-        hora_fin: $('#np-hora-fin').value,
-        pausa_inicio: $('#np-pausa-inicio').value || null,
-        pausa_fin: $('#np-pausa-fin').value || null,
-        dias_atencion: dias,
-        username: $('#np-username').value.trim() || null,
-        password: $('#np-password').value || null,
-      }),
-    });
+    await api('/api/mesa/peluqueros', { method: 'POST', body: fd });
     $('#form-nuevo-peluquero').reset();
     renderDiasChecks();
     await cargarPeluqueros();

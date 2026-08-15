@@ -22,7 +22,17 @@ class Peluquero(db.Model):
     especialidad = db.Column(db.String(120), default='')
     iniciales = db.Column(db.String(4), default='')
     color = db.Column(db.String(20), default='pink')  # pink | cyan | navy (paleta del front)
+
+    # foto "de fábrica" (archivo del repo, ej. barber1.png) — para los peluqueros
+    # que vinieron en el seed inicial.
     foto = db.Column(db.String(200), default='')
+
+    # foto subida desde el panel de admin: se guarda EN LA BASE (no en el
+    # disco del servidor), porque en Render el disco es efímero y se
+    # perdería en el próximo redeploy. Para pocas fotos de un local chico
+    # esto es más simple que armar un bucket externo.
+    foto_blob = db.Column(db.LargeBinary, nullable=True)
+    foto_mimetype = db.Column(db.String(50), nullable=True)
 
     # días que atiende: lista de enteros 0=lunes ... 6=domingo, guardado como "0,1,2"
     dias_atencion = db.Column(db.String(20), default='0,1,2,3,4')
@@ -62,13 +72,20 @@ class Peluquero(db.Model):
         return fecha.weekday() in self.dias_lista()
 
     def to_dict(self, incluir_servicios=True):
+        if self.foto_blob:
+            foto_url = f'/fotos-db/{self.id}'
+        elif self.foto:
+            foto_url = f'/fotos/{self.foto}'
+        else:
+            foto_url = None
+
         data = {
             'id': self.id,
             'nombre': self.nombre,
             'especialidad': self.especialidad,
             'iniciales': self.iniciales,
             'color': self.color,
-            'foto': self.foto,
+            'foto_url': foto_url,
             'dias': self.dias_texto(),
             'dias_atencion': self.dias_lista(),
             'horario_texto': f'{self.hora_inicio} – {self.hora_fin}',

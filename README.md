@@ -33,6 +33,15 @@ que pediste.
   credenciales tuyas, pero el backend ya arma el mensaje, así que cuando
   tengas esa cuenta es cuestión de reemplazar esta función por una llamada
   a esa API.
+- **Foto de peluqueros al crearlos (o después) desde el panel**: en
+  "Mesa de entrada → Peluqueros" ahora se puede subir una foto (JPG, PNG o
+  WEBP, hasta 3 MB) al crear un peluquero nuevo, o agregarle/cambiarle la
+  foto a uno que ya existe. Esas fotos se guardan **en la base Postgres**
+  (no como archivo en el servidor) porque en Render el disco es efímero —
+  si las guardara como archivo, se perderían en el próximo redeploy, igual
+  que pasaba antes con SQLite. Los 3 peluqueros originales de la demo
+  siguen usando sus fotos de archivo (`barber1.png`, etc.), que sí viven en
+  el repo y no se pierden nunca; es un enfoque mixto a propósito.
 - **Corrección de bugs de la demo**: los horarios disponibles ahora se
   calculan según la duración real de cada servicio (antes un corte de 90
   min podía superponerse con el siguiente turno), se puede elegir fecha
@@ -50,6 +59,27 @@ templates/      → páginas (Jinja): reservar, mi-turno, login, mesa, agenda
 static/         → CSS, JS de cada página, y las fotos originales
 requirements.txt, Procfile → para correrlo/desplegarlo
 ```
+
+## ⚠️ Si ya tenías la base Postgres corriendo en Render
+
+Esta versión agrega dos columnas nuevas a la tabla `peluqueros` (para
+guardar la foto). Como `db.create_all()` **no modifica tablas que ya
+existen** — solo crea las que faltan — si ya tenías Postgres corriendo con
+la versión anterior, vas a tener el mismo error de "no existe la columna"
+que la vez pasada. Dos formas de resolverlo, elegí según si ya tenés
+turnos de verdad cargados que te importe conservar:
+
+**Si no te importa perder los datos de prueba** (lo más simple): borrá la
+base en Render y creá una nueva, como hicimos la vez pasada.
+
+**Si querés conservar los turnos que ya cargaste**: conectate a la base
+con `psql` (Render te da el comando exacto en la página de la base, botón
+"Connect" → "External Connection") y corré:
+```sql
+ALTER TABLE peluqueros ADD COLUMN foto_blob BYTEA;
+ALTER TABLE peluqueros ADD COLUMN foto_mimetype VARCHAR(50);
+```
+Con eso alcanza — el resto de las tablas no cambió.
 
 ## Correrlo en tu máquina
 
@@ -168,4 +198,3 @@ Postgres, avisame.
 - Backups periódicos de la base si vas a manejar turnos reales.
 - Si más adelante querés WhatsApp automático, avisame y armamos la
   integración con Twilio (es la opción más simple de las dos).
-# looks_render

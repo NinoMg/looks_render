@@ -1,8 +1,9 @@
 import os
+import json
 from datetime import datetime, date as date_cls
 from functools import wraps
 
-from flask import Flask, request, jsonify, session, render_template, redirect, url_for, send_from_directory
+from flask import Flask, request, jsonify, session, render_template, redirect, url_for, send_from_directory, Response
 
 from models import (
     db, Peluquero, Servicio, Turno, Admin, Settings,
@@ -296,10 +297,40 @@ def api_mesa_toggle_local():
 
 # ---- CRUD de peluqueros (solo admin) ----
 
+FOTO_MIME_PERMITIDOS = {'image/jpeg', 'image/png', 'image/webp'}
+FOTO_TAMANO_MAX = 3 * 1024 * 1024  # 3 MB
+
+
+def _procesar_foto_subida(p):
+    """Si vino un archivo 'foto' en el form-data, lo valida y lo guarda en
+    la columna LargeBinary (en Postgres, no en el disco del servidor).
+    Lanza ValueError con un mensaje legible si algo no es válido."""
+    archivo = request.files.get('foto')
+    if not archivo or not archivo.filename:
+        return
+    if archivo.mimetype not in FOTO_MIME_PERMITIDOS:
+        raise ValueError('La foto tiene que ser JPG, PNG o WEBP')
+    contenido = archivo.read()
+    if not contenido:
+        return
+    if len(contenido) > FOTO_TAMANO_MAX:
+        raise ValueError('La foto no puede pesar más de 3 MB')
+    p.foto_blob = contenido
+    p.foto_mimetype = archivo.mimetype
+
+
+def _datos_entrada():
+    """Acepta tanto JSON (para pruebas/integraciones) como form-data
+    (lo que manda el navegador cuando además se sube una foto)."""
+    if request.form:
+        return request.form
+    return request.get_json(silent=True) or {}
+
+
 @app.post('/api/mesa/peluqueros')
 @admin_required
 def api_crear_peluquero():
-    data = request.get_json(silent=True) or {}
+    data = _datos_entrada()
     pid = (data.get('id') or '').strip().lower()
     nombre = (data.get('nombre') or '').strip()
     if not pid or not nombre:
@@ -307,30 +338,40 @@ def api_crear_peluquero():
     if db.session.get(Peluquero, pid):
         return jsonify({'error': 'Ya existe un peluquero con ese id'}), 409
 
+    dias_raw = data.get('dias_atencion', [0, 1, 2, 3, 4])
+    dias = json.loads(dias_raw) if isinstance(dias_raw, str) else dias_raw
+
     p = Peluquero(
         id=pid, nombre=nombre,
         especialidad=data.get('especialidad', ''),
-        iniciales=data.get('iniciales', nombre[:2].upper()),
+        iniciales=data.get('iniciales') or nombre[:2].upper(),
         color=data.get('color', 'pink'),
-        foto=data.get('foto', ''),
-        dias_atencion=','.join(str(d) for d in data.get('dias_atencion', [0, 1, 2, 3, 4])),
+        dias_atencion=','.join(str(d) for d in dias),
         hora_inicio=data.get('hora_inicio', '10:00'),
         hora_fin=data.get('hora_fin', '19:00'),
-        pausa_inicio=data.get('pausa_inicio'),
-        pausa_fin=data.get('pausa_fin'),
+        pausa_inicio=data.get('pausa_inicio') or None,
+        pausa_fin=data.get('pausa_fin') or None,
     )
     if data.get('username') and data.get('password'):
         p.username = data['username']
         p.set_password(data['password'])
 
+    try:
+        _procesar_foto_subida(p)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
     db.session.add(p)
     db.session.flush()
 
-    for s in data.get('servicios', []):
-        db.session.add(Servicio(
-            peluquero_id=pid, nombre=s['nombre'],
-            duracion_min=int(s['duracion_min']), precio=int(s['precio']),
-        ))
+    servicios_raw = data.get('servicios')
+    if servicios_raw:
+        servicios = json.loads(servicios_raw) if isinstance(servicios_raw, str) else servicios_raw
+        for s in servicios:
+            db.session.add(Servicio(
+                peluquero_id=pid, nombre=s['nombre'],
+                duracion_min=int(s['duracion_min']), precio=int(s['precio']),
+            ))
 
     db.session.commit()
     return jsonify(p.to_dict()), 201
@@ -340,17 +381,25 @@ def api_crear_peluquero():
 @admin_required
 def api_editar_peluquero(peluquero_id):
     p = Peluquero.query.get_or_404(peluquero_id)
-    data = request.get_json(silent=True) or {}
-    for campo in ['nombre', 'especialidad', 'iniciales', 'color', 'foto', 'hora_inicio', 'hora_fin', 'pausa_inicio', 'pausa_fin']:
-        if campo in data:
+    data = _datos_entrada()
+    for campo in ['nombre', 'especialidad', 'iniciales', 'color', 'hora_inicio', 'hora_fin', 'pausa_inicio', 'pausa_fin']:
+        if campo in data and data.get(campo) not in (None, ''):
             setattr(p, campo, data[campo])
     if 'dias_atencion' in data:
-        p.dias_atencion = ','.join(str(d) for d in data['dias_atencion'])
+        dias_raw = data['dias_atencion']
+        dias = json.loads(dias_raw) if isinstance(dias_raw, str) else dias_raw
+        p.dias_atencion = ','.join(str(d) for d in dias)
     if 'activo' in data:
-        p.activo = bool(data['activo'])
+        p.activo = data['activo'] in (True, 'true', '1', 1)
     if data.get('username') and data.get('password'):
         p.username = data['username']
         p.set_password(data['password'])
+
+    try:
+        _procesar_foto_subida(p)
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+
     db.session.commit()
     return jsonify(p.to_dict())
 
@@ -484,6 +533,16 @@ def pagina_agenda():
 @app.get('/fotos/<path:filename>')
 def fotos(filename):
     return send_from_directory(os.path.join(BASE_DIR, 'static', 'fotos'), filename)
+
+
+@app.get('/fotos-db/<peluquero_id>')
+def foto_desde_db(peluquero_id):
+    """Sirve la foto que un admin subió desde el panel (vive en Postgres,
+    no en el disco, para que sobreviva a los redeploys de Render)."""
+    p = db.session.get(Peluquero, peluquero_id)
+    if not p or not p.foto_blob:
+        return '', 404
+    return Response(p.foto_blob, mimetype=p.foto_mimetype or 'image/jpeg')
 
 
 if __name__ == '__main__':
