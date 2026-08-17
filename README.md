@@ -33,6 +33,14 @@ que pediste.
   credenciales tuyas, pero el backend ya arma el mensaje, así que cuando
   tengas esa cuenta es cuestión de reemplazar esta función por una llamada
   a esa API.
+- **Salta directo al próximo día con lugar**: antes, el cliente tenía que
+  ir probando fecha por fecha "a ciegas" hasta encontrar un día con
+  horarios libres. Ahora, apenas elige el servicio, el sistema busca desde
+  ese día hacia adelante (hasta ~2 meses) y salta directo al primer día
+  con disponibilidad real, avisando por qué saltó. Si el cliente cambia la
+  fecha a mano y esa tampoco tiene lugar, aparece un botón para repetir la
+  búsqueda desde ahí. También se sacó el número decorativo que aparecía
+  sobre la foto de cada peluquero en la portada.
 - **Foto de peluqueros al crearlos (o después) desde el panel**: en
   "Mesa de entrada → Peluqueros" ahora se puede subir una foto (JPG, PNG o
   WEBP, hasta 3 MB) al crear un peluquero nuevo, o agregarle/cambiarle la

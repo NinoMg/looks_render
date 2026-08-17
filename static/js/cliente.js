@@ -28,7 +28,11 @@ async function api(path, opts = {}) {
 }
 
 // ---------------- estado ----------------
-const state = { peluqueros: [], abierto: true, peluqueroId: null, servicioId: null, fecha: hoyISO(), hora: null, horariosDisponibles: [] };
+const state = {
+  peluqueros: [], abierto: true, peluqueroId: null, servicioId: null,
+  fecha: hoyISO(), hora: null, horariosDisponibles: [],
+  cargandoHorarios: false, notaFecha: '',
+};
 
 // ---------------- estado del local ----------------
 async function cargarEstadoLocal() {
@@ -57,7 +61,6 @@ function renderPeluqueros() {
   $('#grid-peluqueros').innerHTML = state.peluqueros.map((p, i) => `
     <div class="card-peluquero ${p.color}">
       <div class="foto-wrap ${p.color}">
-        <span class="numero">N.° ${String(i + 1).padStart(2, '0')}</span>
         <div class="badge-logo"><img src="/fotos/looks_logo.png" alt="Looks"></div>
         ${p.foto_url ? `<img src="${esc(p.foto_url)}" alt="${esc(p.nombre)}">` : `<div class="foto-placeholder">${esc(p.iniciales)}</div>`}
         <div class="shine"></div>
@@ -83,11 +86,39 @@ function elegirPeluquero(id) {
   state.fecha = hoyISO();
   state.hora = null;
   state.horariosDisponibles = [];
+  state.notaFecha = '';
   $('#seccion-reserva').style.display = 'block';
   renderPanelReserva();
   $('#seccion-reserva').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function fmtFechaCorta(iso) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
+// Busca desde state.fecha en adelante el primer día con horarios libres, y
+// si no es el mismo día que ya estaba elegido, salta ahí y avisa por qué.
+async function buscarProximoDisponible() {
+  const fechaOriginal = state.fecha;
+  try {
+    const r = await api(`/api/peluqueros/${state.peluqueroId}/proximo-disponible?servicio_id=${state.servicioId}&desde=${state.fecha}`);
+    if (r.fecha) {
+      state.horariosDisponibles = r.horarios;
+      state.fecha = r.fecha;
+      state.notaFecha = r.fecha !== fechaOriginal
+        ? `No había turnos libres el ${fmtFechaCorta(fechaOriginal)} — te mostramos el próximo día con lugar.`
+        : '';
+    } else {
+      state.horariosDisponibles = [];
+      state.notaFecha = 'No encontramos horarios libres en los próximos dos meses. Probá con otro peluquero o servicio.';
+    }
+  } catch (e) {
+    state.horariosDisponibles = [];
+  }
+}
+
+// Trae los horarios de la fecha EXACTA que el cliente eligió a mano (sin
+// saltar a otro día solo).
 async function cargarHorarios() {
   if (!state.servicioId) { state.horariosDisponibles = []; return; }
   try {
@@ -98,7 +129,7 @@ async function cargarHorarios() {
   }
 }
 
-async function renderPanelReserva() {
+function renderPanelReserva() {
   const p = porId(state.peluqueroId);
   const servicio = p.servicios.find(s => s.id === state.servicioId);
 
@@ -126,17 +157,16 @@ async function renderPanelReserva() {
       </div>
 
       <span class="step-label">2. Elegí el día</span>
-      <div class="campo-fecha">
+      <div class="campo-fecha" style="display:flex;align-items:center;gap:8px;">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="irDia(-1)" ${state.fecha <= hoyISO() ? 'disabled' : ''} aria-label="Día anterior">‹</button>
         <input type="date" id="input-fecha" value="${state.fecha}" min="${hoyISO()}" onchange="cambiarFecha(this.value)">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="irDia(1)" aria-label="Día siguiente">›</button>
       </div>
 
       <span class="step-label">3. Elegí el horario</span>
       <div class="ruler"></div>
-      <div class="grid-horarios" id="grid-horarios">
-        ${!state.servicioId
-          ? `<p class="sin-horarios">Elegí un servicio primero.</p>`
-          : `<p class="sin-horarios">Buscando horarios…</p>`}
-      </div>
+      ${state.notaFecha ? `<p class="aviso">${esc(state.notaFecha)}</p>` : ''}
+      <div class="grid-horarios" id="grid-horarios">${renderContenidoHorarios()}</div>
 
       <span class="step-label">4. Tus datos</span>
       <form class="form-datos" id="form-reserva" onsubmit="return confirmarTurno(event)">
@@ -157,20 +187,21 @@ async function renderPanelReserva() {
       </button>
     </div>
   `;
-
-  if (state.servicioId) {
-    await cargarHorarios();
-    renderGridHorarios();
-  }
 }
 
-function renderGridHorarios() {
-  const grid = $('#grid-horarios');
-  if (!state.horariosDisponibles.length) {
-    grid.innerHTML = `<p class="sin-horarios">No hay horarios disponibles ese día. Probá con otra fecha.</p>`;
-    return;
+function renderContenidoHorarios() {
+  if (!state.servicioId) {
+    return `<p class="sin-horarios">Elegí un servicio primero.</p>`;
   }
-  grid.innerHTML = state.horariosDisponibles.map(h => `
+  if (state.cargandoHorarios) {
+    return `<p class="sin-horarios">Buscando el próximo horario libre…</p>`;
+  }
+  if (!state.horariosDisponibles.length) {
+    return `<p class="sin-horarios">No hay horarios disponibles ese día.
+      <button type="button" class="btn btn-ghost btn-sm" style="margin-left:6px;" onclick="buscarDesdeAqui()">Buscar el próximo día libre</button>
+    </p>`;
+  }
+  return state.horariosDisponibles.map(h => `
     <button type="button" class="franja ${h === state.hora ? 'selected' : ''}" onclick="elegirHora('${h}')">${h}</button>
   `).join('');
 }
@@ -178,13 +209,45 @@ function renderGridHorarios() {
 async function elegirServicio(id) {
   state.servicioId = id;
   state.hora = null;
-  await renderPanelReserva();
+  state.notaFecha = '';
+  state.cargandoHorarios = true;
+  renderPanelReserva();
+  await buscarProximoDisponible();
+  state.cargandoHorarios = false;
+  renderPanelReserva();
 }
 
+// El cliente cambió la fecha a mano (con el date picker o las flechas):
+// respetamos exactamente esa fecha, sin saltar sola a otro día.
 async function cambiarFecha(valor) {
   state.fecha = valor;
   state.hora = null;
-  await renderPanelReserva();
+  state.notaFecha = '';
+  if (state.servicioId) {
+    state.cargandoHorarios = true;
+    renderPanelReserva();
+    await cargarHorarios();
+    state.cargandoHorarios = false;
+  }
+  renderPanelReserva();
+}
+
+function irDia(delta) {
+  const d = new Date(state.fecha + 'T00:00:00');
+  d.setDate(d.getDate() + delta);
+  const nueva = d.toISOString().slice(0, 10);
+  if (nueva < hoyISO()) return;
+  cambiarFecha(nueva);
+}
+
+// Desde el mensaje "no hay horarios ese día": busca el próximo libre a
+// partir de la fecha que se estaba mirando.
+async function buscarDesdeAqui() {
+  state.cargandoHorarios = true;
+  renderPanelReserva();
+  await buscarProximoDisponible();
+  state.cargandoHorarios = false;
+  renderPanelReserva();
 }
 
 function elegirHora(h) {
@@ -221,7 +284,7 @@ async function confirmarTurno(e) {
     btn.disabled = false;
     // el horario pudo haber sido tomado por otra persona justo ahora: refrescamos la grilla
     await cargarHorarios();
-    renderGridHorarios();
+    renderPanelReserva();
   }
   return false;
 }

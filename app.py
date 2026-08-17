@@ -144,6 +144,33 @@ def api_disponibilidad(peluquero_id):
     return jsonify({'horarios': horarios, 'atiende': p.atiende_fecha(fecha)})
 
 
+@app.get('/api/peluqueros/<peluquero_id>/proximo-disponible')
+def api_proximo_disponible(peluquero_id):
+    """Busca, a partir de una fecha, el primer día con al menos un horario
+    libre para ese servicio. Así el cliente no tiene que ir probando día
+    por día "a ciegas" hasta encontrar uno con lugar."""
+    p = Peluquero.query.get_or_404(peluquero_id)
+    servicio_id = request.args.get('servicio_id', type=int)
+    if not servicio_id:
+        return jsonify({'error': 'Falta servicio_id'}), 400
+    servicio = Servicio.query.filter_by(id=servicio_id, peluquero_id=peluquero_id).first()
+    if not servicio:
+        return jsonify({'error': 'Servicio inválido para este peluquero'}), 404
+
+    desde = _parse_fecha(request.args.get('desde', '')) or date_cls.today()
+    if desde < date_cls.today():
+        desde = date_cls.today()
+
+    LIMITE_DIAS = 60  # no busca más de ~2 meses para adelante
+    for i in range(LIMITE_DIAS):
+        fecha = desde + timedelta(days=i)
+        horarios = horarios_disponibles(p, servicio, fecha)
+        if horarios:
+            return jsonify({'fecha': fecha.isoformat(), 'horarios': horarios})
+
+    return jsonify({'fecha': None, 'horarios': []})
+
+
 @app.post('/api/turnos')
 def api_crear_turno():
     if get_setting('local_abierto', '1') != '1':
