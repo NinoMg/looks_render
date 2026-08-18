@@ -44,13 +44,6 @@ def login_admin(admin):
     session['nombre'] = admin.username
 
 
-def login_peluquero(p):
-    session.clear()
-    session['user_type'] = 'peluquero'
-    session['user_id'] = p.id
-    session['nombre'] = p.nombre
-
-
 def current_user():
     return {'user_type': session.get('user_type'), 'user_id': session.get('user_id'), 'nombre': session.get('nombre')}
 
@@ -64,17 +57,11 @@ def admin_required(fn):
     return wrapper
 
 
-def peluquero_required(fn):
-    @wraps(fn)
-    def wrapper(*a, **kw):
-        if session.get('user_type') != 'peluquero':
-            return jsonify({'error': 'No autorizado. Iniciá sesión como peluquero.'}), 401
-        return fn(*a, **kw)
-    return wrapper
-
-
 @app.post('/api/auth/login')
 def api_login():
+    """Login único, solo para mesa de entrada — los peluqueros ya no
+    necesitan usuario/clave, su agenda es de acceso libre (ver más abajo,
+    sección AGENDA PÚBLICA)."""
     data = request.get_json(silent=True) or {}
     username = (data.get('username') or '').strip()
     password = data.get('password') or ''
@@ -83,11 +70,6 @@ def api_login():
     if admin and admin.check_password(password):
         login_admin(admin)
         return jsonify({'ok': True, 'user_type': 'admin', 'nombre': admin.username})
-
-    p = Peluquero.query.filter_by(username=username, activo=True).first()
-    if p and p.check_password(password):
-        login_peluquero(p)
-        return jsonify({'ok': True, 'user_type': 'peluquero', 'peluquero_id': p.id, 'nombre': p.nombre})
 
     return jsonify({'error': 'Usuario o contraseña incorrectos'}), 401
 
@@ -376,6 +358,25 @@ def _datos_entrada():
     return request.get_json(silent=True) or {}
 
 
+def _a_entero(valor):
+    """Convierte a entero tolerando que alguien cargue el precio con
+    puntos de miles (ej. "15.000") — antes eso rompía porque int()
+    no acepta puntos."""
+    if isinstance(valor, (int, float)):
+        return int(valor)
+    limpio = str(valor).strip().replace('.', '').replace(',', '')
+    return int(limpio)
+
+
+@app.get('/api/mesa/peluqueros')
+@admin_required
+def api_mesa_listar_peluqueros():
+    """A diferencia de /api/peluqueros (pública), esta trae TAMBIÉN los
+    suspendidos, para poder reactivarlos desde el panel."""
+    peluqueros = Peluquero.query.order_by(Peluquero.activo.desc(), Peluquero.nombre).all()
+    return jsonify([p.to_dict() for p in peluqueros])
+
+
 @app.post('/api/mesa/peluqueros')
 @admin_required
 def api_crear_peluquero():
@@ -419,7 +420,7 @@ def api_crear_peluquero():
         for s in servicios:
             db.session.add(Servicio(
                 peluquero_id=pid, nombre=s['nombre'],
-                duracion_min=int(s['duracion_min']), precio=int(s['precio']),
+                duracion_min=_a_entero(s['duracion_min']), precio=_a_entero(s['precio']),
             ))
 
     db.session.commit()
@@ -431,18 +432,20 @@ def api_crear_peluquero():
 def api_editar_peluquero(peluquero_id):
     p = Peluquero.query.get_or_404(peluquero_id)
     data = _datos_entrada()
-    for campo in ['nombre', 'especialidad', 'iniciales', 'color', 'hora_inicio', 'hora_fin', 'pausa_inicio', 'pausa_fin']:
+    for campo in ['nombre', 'especialidad', 'iniciales', 'color', 'hora_inicio', 'hora_fin']:
         if campo in data and data.get(campo) not in (None, ''):
             setattr(p, campo, data[campo])
+    # la pausa/almuerzo sí se puede vaciar a propósito (mandando '' o null)
+    for campo in ['pausa_inicio', 'pausa_fin']:
+        if campo in data:
+            valor = data.get(campo)
+            setattr(p, campo, valor if valor not in (None, '') else None)
     if 'dias_atencion' in data:
         dias_raw = data['dias_atencion']
         dias = json.loads(dias_raw) if isinstance(dias_raw, str) else dias_raw
         p.dias_atencion = ','.join(str(d) for d in dias)
     if 'activo' in data:
         p.activo = data['activo'] in (True, 'true', '1', 1)
-    if data.get('username') and data.get('password'):
-        p.username = data['username']
-        p.set_password(data['password'])
 
     try:
         _procesar_foto_subida(p)
@@ -482,11 +485,32 @@ def api_agregar_servicio(peluquero_id):
     data = request.get_json(silent=True) or {}
     if not data.get('nombre') or not data.get('duracion_min') or not data.get('precio'):
         return jsonify({'error': 'nombre, duracion_min y precio son obligatorios'}), 400
-    s = Servicio(peluquero_id=peluquero_id, nombre=data['nombre'],
-                 duracion_min=int(data['duracion_min']), precio=int(data['precio']))
+    try:
+        s = Servicio(peluquero_id=peluquero_id, nombre=data['nombre'],
+                     duracion_min=_a_entero(data['duracion_min']), precio=_a_entero(data['precio']))
+    except ValueError:
+        return jsonify({'error': 'Duración y precio tienen que ser números'}), 400
     db.session.add(s)
     db.session.commit()
     return jsonify(s.to_dict()), 201
+
+
+@app.put('/api/mesa/servicios/<int:servicio_id>')
+@admin_required
+def api_editar_servicio(servicio_id):
+    s = Servicio.query.get_or_404(servicio_id)
+    data = request.get_json(silent=True) or {}
+    if data.get('nombre'):
+        s.nombre = data['nombre']
+    try:
+        if data.get('duracion_min'):
+            s.duracion_min = _a_entero(data['duracion_min'])
+        if data.get('precio') is not None and data.get('precio') != '':
+            s.precio = _a_entero(data['precio'])
+    except ValueError:
+        return jsonify({'error': 'Duración y precio tienen que ser números'}), 400
+    db.session.commit()
+    return jsonify(s.to_dict())
 
 
 @app.delete('/api/mesa/servicios/<int:servicio_id>')
@@ -522,23 +546,22 @@ def api_recordatorio_admin(turno_id):
 
 
 # ==================================================================
-#  AGENDA DEL PELUQUERO — requiere sesión de peluquero
+#  AGENDA PÚBLICA DEL PELUQUERO — sin login
 #
-#  Es de SOLO LECTURA a propósito: el peluquero consulta su grilla para
-#  organizarse, pero cualquier cambio (marcar atendido, cancelar, mandar
-#  recordatorio) lo hace el encargado desde "mesa de entrada". Por eso acá
-#  no hay ningún endpoint PATCH/POST — si en el futuro se decide dar más
-#  autonomía a los peluqueros, es cuestión de reincorporarlos (están en el
-#  historial de git / en la versión anterior de este archivo).
+#  Cada peluquero no necesita usuario/clave: entra directo a su propia
+#  agenda desde un link (ej. /agenda/rodrigo) y la consulta libremente
+#  para organizarse. Sigue siendo de SOLO LECTURA a propósito: cualquier
+#  cambio (marcar atendido, cancelar, mandar recordatorio) lo hace el
+#  encargado desde "mesa de entrada".
 # ==================================================================
 
-@app.get('/api/agenda')
-@peluquero_required
-def api_agenda():
-    peluquero_id = session['user_id']
+@app.get('/api/agenda/<peluquero_id>')
+def api_agenda_publica(peluquero_id):
+    p = Peluquero.query.filter_by(id=peluquero_id, activo=True).first()
+    if not p:
+        return jsonify({'error': 'Peluquero no encontrado'}), 404
     fecha = _parse_fecha(request.args.get('fecha', '')) or date_cls.today()
     turnos = Turno.query.filter_by(peluquero_id=peluquero_id, fecha=fecha).order_by(Turno.hora_inicio).all()
-    p = db.session.get(Peluquero, peluquero_id)
     return jsonify({
         'peluquero': p.to_dict(incluir_servicios=False),
         'fecha': fecha.isoformat(),
@@ -573,10 +596,19 @@ def pagina_mesa():
 
 
 @app.get('/agenda')
-def pagina_agenda():
-    if session.get('user_type') != 'peluquero':
-        return redirect(url_for('pagina_login'))
-    return render_template('agenda.html')
+def pagina_agenda_lista():
+    """Lista pública para que cualquier peluquero elija su propia agenda
+    (pensada para un link fijo o una pantalla compartida en el local)."""
+    peluqueros = Peluquero.query.filter_by(activo=True).order_by(Peluquero.nombre).all()
+    return render_template('agenda_lista.html', peluqueros=peluqueros)
+
+
+@app.get('/agenda/<peluquero_id>')
+def pagina_agenda(peluquero_id):
+    p = Peluquero.query.filter_by(id=peluquero_id, activo=True).first()
+    if not p:
+        return redirect(url_for('pagina_agenda_lista'))
+    return render_template('agenda.html', peluquero=p)
 
 
 @app.get('/fotos/<path:filename>')

@@ -33,6 +33,32 @@ que pediste.
   credenciales tuyas, pero el backend ya arma el mensaje, así que cuando
   tengas esa cuenta es cuestión de reemplazar esta función por una llamada
   a esa API.
+- **Editar peluqueros y servicios ya cargados**: en "Mesa de entrada →
+  Peluqueros" ahora hay un botón "Editar" por peluquero (nombre,
+  especialidad, color, horario, días, pausa) y un lápiz ✎ junto a cada
+  servicio para cambiarle nombre, duración o precio sin tener que borrarlo
+  y crearlo de nuevo.
+- **Suspender / reactivar un peluquero**: para cuando alguno se toma una
+  temporada y después vuelve. A diferencia de "Eliminar" (que borra todo su
+  historial si no tiene turnos futuros), "Suspender" solo lo oculta de la
+  portada, de "reservar turno" y de la agenda pública — pero sigue
+  apareciendo en la gestión del panel, listo para reactivar cuando vuelva.
+- **Agenda del peluquero sin login**: ya no hace falta usuario/contraseña
+  para consultarla. Cada peluquero entra directo a `/agenda/<su-id>` (por
+  ejemplo `/agenda/rodrigo`) y ve sus turnos del día — sigue siendo de solo
+  lectura, cualquier cambio lo hace el encargado desde mesa de entrada.
+  También hay una lista pública en `/agenda` para elegir el nombre si no
+  tenés el link directo a mano (por ejemplo, para una pantalla compartida
+  en el local).
+- **Confirmar / rechazar turnos, y accionar desde la vista semanal
+  también**: se agregó el botón "Confirmar" (pasa de pendiente a
+  confirmado) junto a "Atendido" y "Rechazar" (antes decía "Cancelar").
+  Además, ahora se puede tocar cualquier turno de la grilla semanal para
+  abrir sus detalles y hacer las mismas acciones ahí mismo, sin tener que
+  volver a la vista de día.
+- **Precio con puntos ya no rompe**: escribir "12.500" en vez de "12500"
+  al cargar un servicio ahora funciona bien (antes fallaba silenciosamente
+  al guardar).
 - **Salta directo al próximo día con lugar**: antes, el cliente tenía que
   ir probando fecha por fecha "a ciegas" hasta encontrar un día con
   horarios libres. Ahora, apenas elige el servicio, el sistema busca desde
@@ -100,15 +126,17 @@ python app.py
 ```
 
 Abrí `http://localhost:5000`. La primera vez que corre, crea `looks.db` y
-carga los 3 peluqueros originales con estos usuarios (**cambialos antes de
-usarlo con datos reales** — están en `seed.py`):
+carga los 3 peluqueros originales. El único login del sistema es el de
+mesa de entrada (**cambiá esta clave antes de usarlo con datos reales** —
+está en `seed.py`):
 
 | Rol                | Usuario   | Contraseña   |
 |---------------------|-----------|--------------|
 | Mesa de entrada      | `admin`   | `admin123`   |
-| Peluquero Rodrigo    | `rodrigo` | `rodrigo123` |
-| Peluquero Facundo    | `facundo` | `facundo123` |
-| Peluquero Bruno      | `bruno`   | `bruno123`   |
+
+Los peluqueros no tienen usuario ni clave — cada uno entra directo a
+`/agenda/<su-id>` (ej. `/agenda/rodrigo`) para ver sus turnos del día, sin
+loguearse.
 
 Para borrar todo y volver a empezar de cero, simplemente borrá `looks.db` y
 volvé a correr `python app.py`.

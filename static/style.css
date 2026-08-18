@@ -214,6 +214,31 @@ section{padding:56px 0;}
 .chip-turno.atendido{border-left-color:var(--pink-deep);}
 .chip-turno.cancelado{opacity:.45;text-decoration:line-through;border-left-color:var(--red);}
 .chip-mas{font-size:.68rem;opacity:.6;text-align:center;}
+.chip-turno{cursor:pointer;}
+.chip-turno:hover{filter:brightness(0.97);}
+
+/* ---------- modal de turno ---------- */
+.modal-overlay{position:fixed;inset:0;background:rgba(27,25,38,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-caja{position:relative;background:var(--cream-2);border-radius:14px;padding:26px;max-width:380px;width:100%;box-shadow:var(--shadow);}
+.modal-cerrar{position:absolute;top:14px;right:14px;border:none;background:none;font-size:1rem;color:rgba(27,25,38,.5);cursor:pointer;}
+.modal-caja .fila-acciones{flex-wrap:wrap;}
+.modal-caja .fila-acciones button{padding:8px 12px;font-size:.78rem;border-radius:6px;border:1px solid var(--line);background:transparent;}
+.modal-caja .fila-acciones button:hover{background:rgba(69,54,114,.08);}
+
+/* ---------- suspendido / servicios editables ---------- */
+.gestion-peluquero.suspendido{opacity:.6;}
+.badge-suspendido{font-size:.68rem;background:var(--red);color:#fff;padding:2px 8px;border-radius:999px;margin-left:8px;vertical-align:middle;}
+.servicio-chip{display:inline-flex;align-items:center;gap:2px;margin:2px 8px 2px 0;}
+.servicio-chip button{border:none;background:none;cursor:pointer;font-size:.85rem;padding:2px 3px;color:rgba(27,25,38,.5);}
+.servicio-chip button:hover{color:var(--navy);}
+.servicio-edit{display:inline-flex;gap:4px;align-items:center;margin:2px 8px 2px 0;}
+.servicio-edit input{padding:3px 6px;border-radius:5px;border:1px solid var(--line);font-size:.78rem;}
+.servicio-edit input:first-child{width:120px;}
+.servicio-edit input:nth-child(2){width:55px;}
+.servicio-edit input:nth-child(3){width:75px;}
+.servicio-edit button{border:none;background:none;cursor:pointer;font-size:.95rem;padding:2px 4px;}
+.servicio-edit button.ok{color:var(--green);}
+.servicio-edit button.no{color:var(--red);}
 
 @media (max-width:760px){
   .hero-inner{flex-direction:column;align-items:flex-start;}

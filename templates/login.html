@@ -7,7 +7,7 @@
   <div class="login-wrap">
     <div class="login-card">
       <h2>Ingresar</h2>
-      <p>Para mesa de entrada o para tu agenda personal como peluquero.</p>
+      <p>Acceso para mesa de entrada (el encargado del local).</p>
       <form id="form-login" onsubmit="return login(event)">
         <label>Usuario
           <input type="text" id="username" required autocomplete="username">
@@ -40,7 +40,7 @@ async function login(e) {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'No se pudo ingresar');
-    window.location.href = data.user_type === 'admin' ? '/mesa' : '/agenda';
+    window.location.href = '/mesa';
   } catch (err) {
     msg.innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
   }

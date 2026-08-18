@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}Mi agenda — Looks{% endblock %}
+{% block title %}Agenda de {{ peluquero.nombre }} — Looks{% endblock %}
 {% block top_actions %}
-  <button onclick="logout()">Salir</button>
+  <a href="/agenda">Cambiar peluquero</a>
 {% endblock %}
 
 {% block content %}
@@ -9,7 +9,7 @@
   <div class="wrap">
     <section class="section-tight">
       <div class="section-head">
-        <h2 id="titulo-agenda">Mi agenda</h2>
+        <h2 id="titulo-agenda">Agenda de {{ peluquero.nombre }}</h2>
         <p>Tus turnos del día que elijas, para organizarte. Para cancelar, reprogramar o marcar un turno como atendido, avisale al encargado.</p>
       </div>
 
@@ -24,5 +24,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script>window.PELUQUERO_ID = {{ peluquero.id | tojson }};</script>
 <script src="{{ url_for('static', filename='js/agenda.js') }}"></script>
 {% endblock %}

@@ -16,8 +16,6 @@ def seed():
         hora_inicio='10:00', hora_fin='19:00',
         pausa_inicio='12:40', pausa_fin='14:00',
     )
-    rodrigo.set_password('rodrigo123')
-    rodrigo.username = 'rodrigo'
 
     facundo = Peluquero(
         id='facundo', nombre='Facundo Torres', especialidad='Clásico y barba',
@@ -26,8 +24,6 @@ def seed():
         hora_inicio='09:30', hora_fin='18:30',
         pausa_inicio='12:30', pausa_fin='13:30',
     )
-    facundo.set_password('facundo123')
-    facundo.username = 'facundo'
 
     bruno = Peluquero(
         id='bruno', nombre='Bruno Salas', especialidad='Color y texturas',
@@ -36,8 +32,6 @@ def seed():
         hora_inicio='11:00', hora_fin='20:00',
         pausa_inicio='13:15', pausa_fin='15:00',
     )
-    bruno.set_password('bruno123')
-    bruno.username = 'bruno'
 
     db.session.add_all([rodrigo, facundo, bruno])
     db.session.flush()
@@ -66,5 +60,5 @@ def seed():
     db.session.commit()
     print('Datos iniciales cargados.')
     print('Login mesa de entrada -> usuario: admin / clave: admin123')
-    print('Login peluqueros -> rodrigo/rodrigo123, facundo/facundo123, bruno/bruno123')
-    print('(Cambiá estas claves antes de usarlo con datos reales)')
+    print('(Cambiá esta clave antes de usarlo con datos reales)')
+    print('La agenda de cada peluquero es pública, sin login: /agenda/<id>')

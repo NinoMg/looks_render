@@ -1,6 +1,7 @@
 const $ = sel => document.querySelector(sel);
 const fmt = n => '$' + Number(n).toLocaleString('es-AR');
 function esc(str) { const d = document.createElement('div'); d.textContent = str == null ? '' : String(str); return d.innerHTML; }
+function escAttr(str) { return esc(str).replace(/"/g, '&quot;'); }
 function hoyISO() { return new Date().toISOString().slice(0, 10); }
 
 async function api(path, opts = {}) {
@@ -15,6 +16,11 @@ async function api(path, opts = {}) {
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const state = { fecha: hoyISO(), abierto: true, peluqueros: [] };
+let turnosCache = {}; // id -> turno completo, para el modal de detalle
+
+function guardarEnCache(turnos) {
+  turnos.forEach(t => { turnosCache[t.id] = t; });
+}
 
 async function logout() {
   await api('/api/auth/logout', { method: 'POST' });
@@ -73,6 +79,7 @@ async function cambiarFechaMesa(valor) {
 
 async function cargarTurnos() {
   const { turnos, stats } = await api(`/api/mesa/turnos?fecha=${state.fecha}`);
+  guardarEnCache(turnos);
   renderStats(stats, turnos);
   renderTabla(turnos);
 }
@@ -94,6 +101,7 @@ function semanaSiguiente() {
 async function cargarSemana() {
   const r = await api(`/api/mesa/turnos-semana?desde=${semanaDesde}`);
   semanaDesde = r.desde; // el backend normaliza al lunes
+  guardarEnCache(r.turnos);
   renderSemana(r);
 }
 
@@ -147,7 +155,7 @@ function renderSemana(r) {
       } else {
         html += `<div class="celda-turno-dia">`;
         turnos.slice(0, 4).forEach(t => {
-          html += `<div class="chip-turno ${esc(t.estado)}" title="${esc(t.servicio)}"><span class="hora-chip">${esc(t.hora)}</span> ${esc(t.cliente.split(' ')[0])}</div>`;
+          html += `<div class="chip-turno ${esc(t.estado)}" onclick="abrirModalTurno(${t.id})" title="Ver y gestionar"><span class="hora-chip">${esc(t.hora)}</span> ${esc(t.cliente.split(' ')[0])}</div>`;
         });
         if (turnos.length > 4) html += `<div class="chip-mas">+${turnos.length - 4} más</div>`;
         html += `</div>`;
@@ -174,6 +182,20 @@ function renderStats(stats, turnos) {
   `;
 }
 
+// Botones de acción según el estado del turno — se reutiliza en la tabla
+// del día y en el modal que se abre desde la grilla semanal.
+function botonesAccionTurno(t) {
+  if (t.estado === 'atendido' || t.estado === 'cancelado') return '';
+  let botones = '';
+  if (t.estado === 'pendiente') {
+    botones += `<button onclick="marcarEstado(${t.id}, 'confirmado')">Confirmar</button>`;
+  }
+  botones += `<button onclick="marcarEstado(${t.id}, 'atendido')">Atendido</button>`;
+  botones += `<button onclick="marcarEstado(${t.id}, 'cancelado')">Rechazar</button>`;
+  botones += `<button onclick="recordatorio(${t.id})">WhatsApp</button>`;
+  return botones;
+}
+
 function renderTabla(turnos) {
   if (!turnos.length) {
     $('#tabla-turnos').innerHTML = `<p class="sin-horarios">No hay turnos para ese día.</p>`;
@@ -187,20 +209,15 @@ function renderTabla(turnos) {
       <div>${esc(t.servicio)}</div>
       <div class="precio">${fmt(t.precio)}</div>
       <div class="estado ${esc(t.estado)}">${esc(t.estado)}</div>
-      <div class="fila-acciones">
-        ${(t.estado === 'pendiente' || t.estado === 'confirmado') ? `
-          <button onclick="marcarEstado(${t.id}, 'atendido')">Atendido</button>
-          <button onclick="marcarEstado(${t.id}, 'cancelado')">Cancelar</button>
-          <button onclick="recordatorio(${t.id})">WhatsApp</button>
-        ` : ''}
-      </div>
+      <div class="fila-acciones">${botonesAccionTurno(t)}</div>
     </div>
   `).join('');
 }
 
 async function marcarEstado(id, estado) {
   await api(`/api/mesa/turnos/${id}/estado`, { method: 'PATCH', body: JSON.stringify({ estado }) });
-  await cargarTurnos();
+  cerrarModal();
+  if (vistaTurnos === 'semana') { await cargarSemana(); } else { await cargarTurnos(); }
 }
 
 async function recordatorio(id) {
@@ -208,9 +225,40 @@ async function recordatorio(id) {
   window.open(whatsapp_url, '_blank');
 }
 
+// ---------------- modal de detalle de turno (vista semanal) ----------------
+function abrirModalTurno(id) {
+  const t = turnosCache[id];
+  if (!t) return;
+  const fechaTxt = new Date(t.fecha + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+  $('#modal-turno-contenido').innerHTML = `
+    <div class="tag-peluquero ${esc(t.peluquero_color)}" style="margin-bottom:10px;">${esc(t.peluquero_nombre)}</div>
+    <h3 style="margin-bottom:2px;">${esc(t.cliente)}</h3>
+    <div style="font-size:.85rem;color:rgba(27,25,38,.6);margin-bottom:14px;">${esc(t.telefono)}</div>
+    <div class="ticket-row"><span class="label">Servicio</span><span>${esc(t.servicio)}</span></div>
+    <div class="ticket-row"><span class="label">Día</span><span>${esc(fechaTxt)}</span></div>
+    <div class="ticket-row"><span class="label">Hora</span><span>${esc(t.hora)} hs</span></div>
+    <div class="ticket-row"><span class="label">Seña / total</span><span>${fmt(t.precio)}</span></div>
+    <div class="ticket-row"><span class="label">Estado</span><span class="estado ${esc(t.estado)}">${esc(t.estado)}</span></div>
+    <div class="fila-acciones" style="margin-top:16px;justify-content:flex-end;">${botonesAccionTurno(t) || '<span style="font-size:.8rem;color:rgba(27,25,38,.5);">Este turno ya está cerrado.</span>'}</div>
+  `;
+  $('#modal-turno').style.display = 'flex';
+}
+
+function cerrarModal() {
+  const m = $('#modal-turno');
+  if (m) m.style.display = 'none';
+}
+
+function cerrarModalSiFondo(e) {
+  if (e.target.id === 'modal-turno') cerrarModal();
+}
+
 // ---------------- gestión de peluqueros ----------------
+let editandoPeluquero = null;
+let editandoServicio = null;
+
 async function cargarPeluqueros() {
-  state.peluqueros = await api('/api/peluqueros'); // trae solo activos; para editar inactivos habría que ampliar el endpoint
+  state.peluqueros = await api('/api/mesa/peluqueros'); // trae también los suspendidos
   renderPeluqueros();
   renderDiasChecks();
 }
@@ -223,37 +271,154 @@ function renderDiasChecks() {
 
 function renderPeluqueros() {
   $('#lista-peluqueros').innerHTML = state.peluqueros.map(p => `
-    <div class="gestion-peluquero">
-      <div class="gestion-peluquero-head">
-        <div style="display:flex;align-items:center;gap:12px;">
-          ${p.foto_url
-            ? `<img src="${esc(p.foto_url)}" alt="" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
-            : `<div class="avatar ${esc(p.color)}" style="width:44px;height:44px;font-size:.9rem;flex-shrink:0;">${esc(p.iniciales)}</div>`}
-          <div>
-            <strong>${esc(p.nombre)}</strong>
-            <span class="especialidad"> · ${esc(p.especialidad)}</span>
-            <div class="dias-badge" style="text-align:left;margin-top:4px;">${esc(p.dias)} · ${esc(p.horario_texto)}${p.tiene_login ? ' · con acceso a agenda propia' : ''}</div>
-          </div>
-        </div>
-        <div class="fila-acciones">
-          <button onclick="borrarPeluquero('${p.id}')">Eliminar</button>
+    <div class="gestion-peluquero ${!p.activo ? 'suspendido' : ''}">
+      ${editandoPeluquero === p.id ? renderFormEdicionPeluquero(p) : renderVistaPeluquero(p)}
+    </div>
+  `).join('') || '<p class="sin-horarios">Todavía no hay peluqueros cargados.</p>';
+}
+
+function renderVistaPeluquero(p) {
+  return `
+    <div class="gestion-peluquero-head">
+      <div style="display:flex;align-items:center;gap:12px;">
+        ${p.foto_url
+          ? `<img src="${esc(p.foto_url)}" alt="" style="width:44px;height:44px;border-radius:50%;object-fit:cover;flex-shrink:0;">`
+          : `<div class="avatar ${esc(p.color)}" style="width:44px;height:44px;font-size:.9rem;flex-shrink:0;">${esc(p.iniciales)}</div>`}
+        <div>
+          <strong>${esc(p.nombre)}</strong>
+          ${!p.activo ? '<span class="badge-suspendido">Suspendido</span>' : ''}
+          <span class="especialidad"> · ${esc(p.especialidad)}</span>
+          <div class="dias-badge" style="text-align:left;margin-top:4px;">${esc(p.dias)} · ${esc(p.horario_texto)}</div>
         </div>
       </div>
-      <div class="servicios-mini">
-        ${p.servicios.map(s => `${esc(s.nombre)} (${fmt(s.precio)}) <button style="border:none;background:none;color:var(--red);cursor:pointer;" onclick="borrarServicio(${s.id}, '${p.id}')">✕</button>`).join(' · ') || 'Sin servicios cargados'}
-      </div>
-      <form style="display:flex;gap:8px;margin-top:10px;" onsubmit="return agregarServicio(event, '${p.id}')">
-        <input type="text" placeholder="Servicio" class="srv-nombre" required style="flex:2;padding:7px;border-radius:6px;border:1px solid var(--line);">
-        <input type="number" placeholder="Min" class="srv-duracion" required min="5" style="flex:1;padding:7px;border-radius:6px;border:1px solid var(--line);">
-        <input type="number" placeholder="Precio" class="srv-precio" required min="0" style="flex:1;padding:7px;border-radius:6px;border:1px solid var(--line);">
-        <button class="btn btn-ghost btn-sm" type="submit">+ Servicio</button>
-      </form>
-      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
-        <input type="file" accept="image/jpeg,image/png,image/webp" id="foto-${p.id}" style="font-size:.75rem;max-width:200px;">
-        <button class="btn btn-ghost btn-sm" type="button" onclick="subirFoto('${p.id}')">${p.foto_url ? 'Cambiar foto' : 'Subir foto'}</button>
+      <div class="fila-acciones">
+        <button onclick="toggleEditarPeluquero('${p.id}')">Editar</button>
+        <button onclick="toggleActivoPeluquero('${p.id}', ${p.activo})">${p.activo ? 'Suspender' : 'Reactivar'}</button>
+        <button onclick="borrarPeluquero('${p.id}')">Eliminar</button>
       </div>
     </div>
-  `).join('');
+    <div class="servicios-mini">
+      ${p.servicios.map(s => renderServicioMini(p, s)).join('') || 'Sin servicios cargados'}
+    </div>
+    <form style="display:flex;gap:8px;margin-top:10px;" onsubmit="return agregarServicio(event, '${p.id}')">
+      <input type="text" placeholder="Servicio" class="srv-nombre" required style="flex:2;padding:7px;border-radius:6px;border:1px solid var(--line);">
+      <input type="number" placeholder="Min" class="srv-duracion" required min="5" style="flex:1;padding:7px;border-radius:6px;border:1px solid var(--line);">
+      <input type="text" inputmode="numeric" placeholder="Precio (sin puntos)" class="srv-precio" required style="flex:1;padding:7px;border-radius:6px;border:1px solid var(--line);">
+      <button class="btn btn-ghost btn-sm" type="submit">+ Servicio</button>
+    </form>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+      <input type="file" accept="image/jpeg,image/png,image/webp" id="foto-${p.id}" style="font-size:.75rem;max-width:200px;">
+      <button class="btn btn-ghost btn-sm" type="button" onclick="subirFoto('${p.id}')">${p.foto_url ? 'Cambiar foto' : 'Subir foto'}</button>
+    </div>
+  `;
+}
+
+function renderServicioMini(p, s) {
+  if (editandoServicio === s.id) {
+    return `<span class="servicio-edit">
+      <input type="text" id="es-nombre-${s.id}" value="${escAttr(s.nombre)}">
+      <input type="number" id="es-duracion-${s.id}" value="${s.duracion_min}" title="Minutos">
+      <input type="text" inputmode="numeric" id="es-precio-${s.id}" value="${s.precio}" title="Precio, sin puntos">
+      <button class="ok" onclick="guardarEdicionServicio(${s.id})" title="Guardar">✓</button>
+      <button class="no" onclick="toggleEditarServicio(${s.id})" title="Cancelar">✕</button>
+    </span>`;
+  }
+  return `<span class="servicio-chip">${esc(s.nombre)} (${fmt(s.precio)})
+    <button onclick="toggleEditarServicio(${s.id})" title="Editar">✎</button>
+    <button onclick="borrarServicio(${s.id}, '${p.id}')" title="Borrar">✕</button>
+  </span>`;
+}
+
+function renderFormEdicionPeluquero(p) {
+  const dias = p.dias_atencion || [];
+  return `
+    <form class="form-nuevo-peluquero" style="margin-top:0;box-shadow:none;border:none;padding:0;" onsubmit="return guardarEdicionPeluquero(event, '${p.id}')">
+      <label>Nombre completo <input type="text" id="ep-nombre-${p.id}" value="${escAttr(p.nombre)}" required></label>
+      <label>Especialidad <input type="text" id="ep-especialidad-${p.id}" value="${escAttr(p.especialidad)}"></label>
+      <label>Color de tarjeta
+        <select id="ep-color-${p.id}">
+          <option value="pink" ${p.color === 'pink' ? 'selected' : ''}>Rosa</option>
+          <option value="cyan" ${p.color === 'cyan' ? 'selected' : ''}>Cyan</option>
+          <option value="navy" ${p.color === 'navy' ? 'selected' : ''}>Navy</option>
+        </select>
+      </label>
+      <label>Hora inicio <input type="time" id="ep-hora-inicio-${p.id}" value="${p.hora_inicio}" required></label>
+      <label>Hora fin <input type="time" id="ep-hora-fin-${p.id}" value="${p.hora_fin}" required></label>
+      <label>Pausa desde (opcional) <input type="time" id="ep-pausa-inicio-${p.id}" value="${p.pausa_inicio || ''}"></label>
+      <label>Pausa hasta (opcional) <input type="time" id="ep-pausa-fin-${p.id}" value="${p.pausa_fin || ''}"></label>
+      <div class="full">
+        <div style="font-size:.8rem;color:rgba(27,25,38,.6);margin-bottom:6px;">Días de atención</div>
+        <div id="ep-dias-${p.id}" style="display:flex;gap:12px;flex-wrap:wrap;font-size:.85rem;">
+          ${DIAS.map((d, i) => `<label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" value="${i}" ${dias.includes(i) ? 'checked' : ''}> ${d}</label>`).join('')}
+        </div>
+      </div>
+      <div id="mensaje-editar-${p.id}" class="full"></div>
+      <div class="full" style="display:flex;gap:8px;">
+        <button class="btn btn-primary" type="submit">Guardar cambios</button>
+        <button class="btn btn-ghost" type="button" onclick="toggleEditarPeluquero('${p.id}')">Cancelar</button>
+      </div>
+    </form>
+  `;
+}
+
+function toggleEditarPeluquero(id) {
+  editandoPeluquero = editandoPeluquero === id ? null : id;
+  renderPeluqueros();
+}
+
+function toggleEditarServicio(id) {
+  editandoServicio = editandoServicio === id ? null : id;
+  renderPeluqueros();
+}
+
+async function guardarEdicionPeluquero(e, id) {
+  e.preventDefault();
+  const dias = Array.from(document.querySelectorAll(`#ep-dias-${id} input:checked`)).map(c => Number(c.value));
+  const msg = $(`#mensaje-editar-${id}`);
+  try {
+    await api(`/api/mesa/peluqueros/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        nombre: $(`#ep-nombre-${id}`).value.trim(),
+        especialidad: $(`#ep-especialidad-${id}`).value.trim(),
+        color: $(`#ep-color-${id}`).value,
+        hora_inicio: $(`#ep-hora-inicio-${id}`).value,
+        hora_fin: $(`#ep-hora-fin-${id}`).value,
+        pausa_inicio: $(`#ep-pausa-inicio-${id}`).value || null,
+        pausa_fin: $(`#ep-pausa-fin-${id}`).value || null,
+        dias_atencion: dias,
+      }),
+    });
+    editandoPeluquero = null;
+    await cargarPeluqueros();
+  } catch (err) {
+    if (msg) msg.innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
+  }
+  return false;
+}
+
+async function guardarEdicionServicio(id) {
+  const nombre = $(`#es-nombre-${id}`).value.trim();
+  const duracion_min = $(`#es-duracion-${id}`).value;
+  const precio = $(`#es-precio-${id}`).value;
+  try {
+    await api(`/api/mesa/servicios/${id}`, { method: 'PUT', body: JSON.stringify({ nombre, duracion_min, precio }) });
+    editandoServicio = null;
+    await cargarPeluqueros();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function toggleActivoPeluquero(id, activoActual) {
+  const accion = activoActual ? 'suspender' : 'reactivar';
+  if (!confirm(`¿Seguro que querés ${accion} a este peluquero?`)) return;
+  try {
+    await api(`/api/mesa/peluqueros/${id}`, { method: 'PUT', body: JSON.stringify({ activo: !activoActual }) });
+    await cargarPeluqueros();
+  } catch (err) {
+    alert(err.message);
+  }
 }
 
 async function subirFoto(id) {
@@ -270,7 +435,7 @@ async function subirFoto(id) {
 }
 
 async function borrarPeluquero(id) {
-  if (!confirm('¿Eliminar (o desactivar si tiene turnos futuros) este peluquero?')) return;
+  if (!confirm('¿Eliminar (o suspender si tiene turnos futuros) este peluquero?')) return;
   await api(`/api/mesa/peluqueros/${id}`, { method: 'DELETE' });
   await cargarPeluqueros();
 }
@@ -286,10 +451,14 @@ async function agregarServicio(e, peluqueroId) {
   const nombre = form.querySelector('.srv-nombre').value.trim();
   const duracion_min = form.querySelector('.srv-duracion').value;
   const precio = form.querySelector('.srv-precio').value;
-  await api(`/api/mesa/peluqueros/${peluqueroId}/servicios`, {
-    method: 'POST', body: JSON.stringify({ nombre, duracion_min, precio }),
-  });
-  await cargarPeluqueros();
+  try {
+    await api(`/api/mesa/peluqueros/${peluqueroId}/servicios`, {
+      method: 'POST', body: JSON.stringify({ nombre, duracion_min, precio }),
+    });
+    await cargarPeluqueros();
+  } catch (err) {
+    alert(err.message);
+  }
   return false;
 }
 
@@ -309,8 +478,6 @@ async function crearPeluquero(e) {
   if ($('#np-pausa-inicio').value) fd.append('pausa_inicio', $('#np-pausa-inicio').value);
   if ($('#np-pausa-fin').value) fd.append('pausa_fin', $('#np-pausa-fin').value);
   fd.append('dias_atencion', JSON.stringify(dias));
-  if ($('#np-username').value.trim()) fd.append('username', $('#np-username').value.trim());
-  if ($('#np-password').value) fd.append('password', $('#np-password').value);
   const fotoInput = $('#np-foto');
   if (fotoInput.files[0]) fd.append('foto', fotoInput.files[0]);
 

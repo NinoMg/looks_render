@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Agendas — Looks{% endblock %}
+{% block top_actions %}<a href="/">Reservar</a>{% endblock %}
+
+{% block content %}
+<main>
+  <div class="wrap" style="max-width:560px;">
+    <section class="section-tight">
+      <div class="section-head">
+        <h2>¿Cuál es tu agenda?</h2>
+        <p>Elegí tu nombre para ver tus turnos del día.</p>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        {% for p in peluqueros %}
+        <a href="/agenda/{{ p.id }}" class="panel" style="display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;margin-top:0;">
+          <div class="avatar {{ p.color }}">{{ p.iniciales }}</div>
+          <div>
+            <h3 style="font-size:1.05rem;">{{ p.nombre }}</h3>
+            <div class="especialidad">{{ p.especialidad }}</div>
+          </div>
+        </a>
+        {% else %}
+        <p class="sin-horarios">No hay peluqueros activos por ahora.</p>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</main>
+{% endblock %}
