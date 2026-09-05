@@ -155,8 +155,6 @@ def api_proximo_disponible(peluquero_id):
 
 @app.post('/api/turnos')
 def api_crear_turno():
-    if get_setting('local_abierto', '1') != '1':
-        return jsonify({'error': 'El local está cerrado en este momento, no se pueden confirmar turnos nuevos.'}), 409
 
     data = request.get_json(silent=True) or {}
     peluquero_id = data.get('peluquero_id')

@@ -2,6 +2,11 @@
 const $ = sel => document.querySelector(sel);
 const fmt = n => '$' + Number(n).toLocaleString('es-AR');
 
+const NUMERO_WHATSAPP = '2604693013';
+function linkWhatsapp(mensaje) {
+  return `https://wa.me/54${NUMERO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`;
+}
+
 // Escapa cualquier valor antes de insertarlo en innerHTML (evita XSS con
 // nombres/teléfonos que ingresa el usuario). Regla: TODO texto que venga
 // de un input de usuario pasa por acá antes de ir al DOM.
@@ -179,10 +184,9 @@ function renderPanelReserva() {
       </form>
 
       <div id="mensaje-reserva"></div>
-      ${!state.abierto ? '<div class="aviso">El local está cerrado en este momento — no se pueden confirmar turnos nuevos.</div>' : ''}
 
       <button class="btn btn-primary btn-block" id="btn-confirmar" form="form-reserva" type="submit"
-        ${(!servicio || !state.hora || !state.abierto) ? 'disabled' : ''}>
+        ${(!servicio || !state.hora) ? 'disabled' : ''}
         Confirmar turno${servicio ? ' · ' + fmt(servicio.precio) : ''}
       </button>
     </div>
@@ -260,7 +264,6 @@ async function confirmarTurno(e) {
   if (!state.abierto) return false;
   const p = porId(state.peluqueroId);
   const servicio = p.servicios.find(s => s.id === state.servicioId);
-  if (!servicio || !state.hora) return false;
 
   const nombre = $('#input-nombre').value.trim();
   const telefono = $('#input-telefono').value.trim();
