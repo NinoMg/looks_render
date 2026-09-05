@@ -186,7 +186,7 @@ function renderPanelReserva() {
       <div id="mensaje-reserva"></div>
 
       <button class="btn btn-primary btn-block" id="btn-confirmar" form="form-reserva" type="submit"
-        ${(!servicio || !state.hora) ? 'disabled' : ''}
+        ${(!servicio || !state.hora) ? 'disabled' : ''}>
         Confirmar turno${servicio ? ' · ' + fmt(servicio.precio) : ''}
       </button>
     </div>
@@ -261,7 +261,6 @@ function elegirHora(h) {
 
 async function confirmarTurno(e) {
   e.preventDefault();
-  if (!state.abierto) return false;
   const p = porId(state.peluqueroId);
   const servicio = p.servicios.find(s => s.id === state.servicioId);
 
