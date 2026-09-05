@@ -321,5 +321,6 @@ function volverAGrilla() {
 }
 
 // ---------------- init ----------------
-cargarEstadoLocal();
+
 cargarPeluqueros();
+$('#whatsapp-btn').href = linkWhatsapp('Hola! Quería consultarles sobre un turno en Looks.');
