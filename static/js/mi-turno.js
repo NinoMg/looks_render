@@ -19,11 +19,10 @@ let horaSeleccionada = null;
 async function buscarTurno(e) {
   e.preventDefault();
   const telefono = $('#input-telefono').value.trim();
-  const codigo = $('#input-codigo').value.trim().toUpperCase();
   $('#mensaje-buscar').innerHTML = '';
   try {
-    const turno = await api(`/api/turnos/buscar?telefono=${encodeURIComponent(telefono)}&codigo=${encodeURIComponent(codigo)}`);
-    credenciales = { telefono, codigo };
+    const turno = await api(`/api/turnos/buscar?telefono=${encodeURIComponent(telefono)}`);
+    credenciales = { telefono };
     modoEdicion = false;
     renderTurno(turno);
   } catch (err) {

@@ -141,7 +141,7 @@ function renderPanelReserva() {
   $('#panel-reserva').innerHTML = `
     <div class="panel">
       <div class="panel-head">
-        <div class="avatar ${p.color}">${esc(p.iniciales)}</div>
+        <div class="avatar ${p.color}">${p.foto_url ? `<img src="${esc(p.foto_url)}" alt="${esc(p.nombre)}">` : esc(p.iniciales)}</div>
         <div>
           <h3>${esc(p.nombre)}</h3>
           <div class="especialidad">${esc(p.especialidad)} · ${esc(p.dias)}</div>

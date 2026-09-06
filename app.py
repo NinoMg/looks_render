@@ -197,22 +197,23 @@ def api_crear_turno():
 
 
 @app.get('/api/turnos/buscar')
+@app.get('/api/turnos/buscar')
 def api_buscar_turno():
-    """Autoservicio del cliente: busca sus turnos por teléfono + código."""
     telefono = (request.args.get('telefono') or '').strip()
-    codigo = (request.args.get('codigo') or '').strip().upper()
-    if not telefono or not codigo:
-        return jsonify({'error': 'Ingresá teléfono y código de turno'}), 400
+    if not telefono:
+        return jsonify({'error': 'Ingresá tu teléfono'}), 400
 
-    turno = Turno.query.filter_by(telefono=telefono, codigo=codigo).first()
+    turno = (Turno.query.filter_by(telefono=telefono)
+             .order_by(Turno.fecha.desc(), Turno.hora_inicio.desc())
+             .first())
     if not turno:
-        return jsonify({'error': 'No encontramos un turno con esos datos'}), 404
+        return jsonify({'error': 'No encontramos un turno con ese teléfono'}), 404
     return jsonify(turno.to_dict())
 
 
 def _validar_propietario_turno(turno, data):
-    return turno.telefono == (data.get('telefono') or '').strip() and turno.codigo == (data.get('codigo') or '').strip().upper()
-
+    return turno.telefono == (data.get('telefono') or '').strip()
+    
 
 @app.patch('/api/turnos/<int:turno_id>/cancelar')
 def api_cancelar_turno(turno_id):
