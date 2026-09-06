@@ -305,7 +305,7 @@ function mostrarTicket(p, turno) {
       <div class="ticket-row"><span class="label">Cliente</span><span>${esc(turno.cliente)}</span></div>
       <div class="ticket-row"><span class="label">Seña / total</span><span>${fmt(turno.precio)}</span></div>
       <div class="ticket-perf"></div>
-      <p style="font-size:.82rem;color:rgba(27,25,38,.6);">Podés buscar, cambiar o cancelar este turno más adelante ingresando tu teléfono en "Mi turno".</p>
+      <p style="font-size:.82rem;color:rgba(27,25,38,.6);">Podés buscar este turno más adelante ingresando tu teléfono en "Mi turno".</p>
       <button class="btn btn-ghost btn-block" onclick="volverAGrilla()">Reservar otro turno</button>
     </div>
   `;

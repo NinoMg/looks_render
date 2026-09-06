@@ -13,7 +13,15 @@
       <div style="display:flex;flex-direction:column;gap:10px;">
         {% for p in peluqueros %}
         <a href="/agenda/{{ p.id }}" class="panel" style="display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;margin-top:0;">
-          <div class="avatar {{ p.color }}">{{ p.iniciales }}</div>
+          <div class="avatar {{ p.color }}">
+  {% if p.foto_blob %}
+    <img src="/fotos-db/{{ p.id }}" alt="{{ p.nombre }}">
+  {% elif p.foto %}
+    <img src="/fotos/{{ p.foto }}" alt="{{ p.nombre }}">
+  {% else %}
+    {{ p.iniciales }}
+  {% endif %}
+</div>
           <div>
             <h3 style="font-size:1.05rem;">{{ p.nombre }}</h3>
             <div class="especialidad">{{ p.especialidad }}</div>

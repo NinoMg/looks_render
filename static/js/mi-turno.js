@@ -1,7 +1,11 @@
 const $ = sel => document.querySelector(sel);
 const fmt = n => '$' + Number(n).toLocaleString('es-AR');
 function esc(str) { const d = document.createElement('div'); d.textContent = str == null ? '' : String(str); return d.innerHTML; }
-function hoyISO() { return new Date().toISOString().slice(0, 10); }
+
+const NUMERO_WHATSAPP = '2604693013';
+function linkWhatsapp(mensaje) {
+  return `https://wa.me/54${NUMERO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`;
+}
 
 async function api(path, opts = {}) {
   const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', ...opts });
@@ -10,20 +14,12 @@ async function api(path, opts = {}) {
   return data;
 }
 
-let credenciales = null; // { telefono, codigo } — se guardan solo en memoria de esta pestaña
-let modoEdicion = false;
-let horariosNuevos = [];
-let fechaSeleccionada = null;
-let horaSeleccionada = null;
-
 async function buscarTurno(e) {
   e.preventDefault();
   const telefono = $('#input-telefono').value.trim();
   $('#mensaje-buscar').innerHTML = '';
   try {
     const turno = await api(`/api/turnos/buscar?telefono=${encodeURIComponent(telefono)}`);
-    credenciales = { telefono };
-    modoEdicion = false;
     renderTurno(turno);
   } catch (err) {
     $('#mensaje-buscar').innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
@@ -47,84 +43,9 @@ function renderTurno(turno) {
       <div class="ticket-row"><span class="label">Seña / total</span><span>${fmt(turno.precio)}</span></div>
       <div class="ticket-perf"></div>
       ${puedeModificar ? `
-        <div style="display:flex;gap:10px;">
-          <button class="btn btn-ghost" style="flex:1;" onclick="mostrarReprogramar(${turno.id}, '${turno.peluquero_id}', ${turno.servicio_id})">Cambiar día/horario</button>
-          <button class="btn btn-danger" style="flex:1;" onclick="cancelar(${turno.id})">Cancelar turno</button>
-        </div>
-        <div id="panel-reprogramar" style="margin-top:16px;"></div>
+        <p class="sin-horarios">¿Necesitás cambiar el día, el horario o cancelar? Escribinos por WhatsApp.</p>
+        <a class="btn btn-primary btn-block" href="${linkWhatsapp('Hola! Quería modificar mi turno N.° ' + turno.id + '.')}" target="_blank" rel="noopener">Escribinos por WhatsApp</a>
       ` : `<p class="sin-horarios">Este turno ya no se puede modificar (está ${esc(turno.estado)}).</p>`}
     </div>
   `;
-}
-
-async function cancelar(turnoId) {
-  if (!confirm('¿Seguro que querés cancelar este turno?')) return;
-  try {
-    const turno = await api(`/api/turnos/${turnoId}/cancelar`, { method: 'PATCH', body: JSON.stringify(credenciales) });
-    renderTurno(turno);
-  } catch (err) {
-    alert(err.message);
-  }
-}
-
-async function mostrarReprogramar(turnoId, peluqueroId, servicioId) {
-  fechaSeleccionada = hoyISO();
-  horaSeleccionada = null;
-  await renderReprogramar(turnoId, peluqueroId, servicioId);
-}
-
-async function renderReprogramar(turnoId, peluqueroId, servicioId) {
-  $('#panel-reprogramar').innerHTML = `
-    <div class="campo-fecha">
-      <input type="date" value="${fechaSeleccionada}" min="${hoyISO()}"
-        onchange="cambiarFechaReprogramar(${turnoId}, '${peluqueroId}', ${servicioId}, this.value)">
-    </div>
-    <div class="grid-horarios" id="grid-horarios-reprog"><p class="sin-horarios">Buscando horarios…</p></div>
-    <button class="btn btn-primary btn-block" id="btn-confirmar-reprog" disabled
-      onclick="confirmarReprogramar(${turnoId})">Confirmar nuevo horario</button>
-  `;
-  await cargarHorariosReprogramar(peluqueroId, servicioId);
-}
-
-async function cargarHorariosReprogramar(peluqueroId, servicioId) {
-  try {
-    const r = await api(`/api/peluqueros/${peluqueroId}/disponibilidad?servicio_id=${servicioId}&fecha=${fechaSeleccionada}`);
-    horariosNuevos = r.horarios;
-  } catch (e) {
-    horariosNuevos = [];
-  }
-  const grid = $('#grid-horarios-reprog');
-  if (!grid) return;
-  if (!horariosNuevos.length) {
-    grid.innerHTML = `<p class="sin-horarios">No hay horarios disponibles ese día.</p>`;
-    return;
-  }
-  grid.innerHTML = horariosNuevos.map(h => `
-    <button type="button" class="franja ${h === horaSeleccionada ? 'selected' : ''}" onclick="elegirHoraReprogramar('${h}')">${h}</button>
-  `).join('');
-}
-
-function elegirHoraReprogramar(h) {
-  horaSeleccionada = h;
-  document.querySelectorAll('#grid-horarios-reprog .franja').forEach(b => b.classList.toggle('selected', b.textContent === h));
-  $('#btn-confirmar-reprog').disabled = false;
-}
-
-async function cambiarFechaReprogramar(turnoId, peluqueroId, servicioId, valor) {
-  fechaSeleccionada = valor;
-  horaSeleccionada = null;
-  $('#btn-confirmar-reprog').disabled = true;
-  await cargarHorariosReprogramar(peluqueroId, servicioId);
-}
-
-async function confirmarReprogramar(turnoId) {
-  try {
-    const turno = await api(`/api/turnos/${turnoId}/reprogramar`, {
-      method: 'PATCH',
-      body: JSON.stringify({ ...credenciales, fecha: fechaSeleccionada, hora: horaSeleccionada }),
-    });
-    renderTurno(turno);
-  } catch (err) {
-    alert(err.message);
-  }
 }

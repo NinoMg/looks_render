@@ -197,7 +197,6 @@ def api_crear_turno():
 
 
 @app.get('/api/turnos/buscar')
-@app.get('/api/turnos/buscar')
 def api_buscar_turno():
     telefono = (request.args.get('telefono') or '').strip()
     if not telefono:
@@ -209,58 +208,6 @@ def api_buscar_turno():
     if not turno:
         return jsonify({'error': 'No encontramos un turno con ese teléfono'}), 404
     return jsonify(turno.to_dict())
-
-
-def _validar_propietario_turno(turno, data):
-    return turno.telefono == (data.get('telefono') or '').strip()
-    
-
-@app.patch('/api/turnos/<int:turno_id>/cancelar')
-def api_cancelar_turno(turno_id):
-    data = request.get_json(silent=True) or {}
-    turno = Turno.query.get_or_404(turno_id)
-    if not _validar_propietario_turno(turno, data):
-        return jsonify({'error': 'Teléfono o código incorrecto'}), 403
-    if turno.estado == 'atendido':
-        return jsonify({'error': 'Ese turno ya fue atendido, no se puede cancelar'}), 409
-    turno.estado = 'cancelado'
-    db.session.commit()
-    return jsonify(turno.to_dict())
-
-
-@app.patch('/api/turnos/<int:turno_id>/reprogramar')
-def api_reprogramar_turno(turno_id):
-    """El cliente cambia fecha/hora de su propio turno (mismo peluquero y servicio)."""
-    data = request.get_json(silent=True) or {}
-    turno = Turno.query.get_or_404(turno_id)
-    if not _validar_propietario_turno(turno, data):
-        return jsonify({'error': 'Teléfono o código incorrecto'}), 403
-    if turno.estado in ('atendido', 'cancelado'):
-        return jsonify({'error': f'Ese turno ya está {turno.estado}, no se puede modificar'}), 409
-
-    nueva_fecha = _parse_fecha(data.get('fecha', ''))
-    nueva_hora = (data.get('hora') or '').strip()
-    if not nueva_fecha or not nueva_hora:
-        return jsonify({'error': 'Faltan fecha y/u hora nuevas'}), 400
-
-    p = turno.peluquero
-    servicio = turno.servicio
-    if not p.atiende_fecha(nueva_fecha) or nueva_fecha < date_cls.today():
-        return jsonify({'error': 'El peluquero no atiende ese día'}), 409
-
-    disponibles = horarios_disponibles(p, servicio, nueva_fecha)
-    # si el nuevo horario es el mismo día/hora actual, permitirlo igual
-    if nueva_hora not in disponibles and not (nueva_fecha == turno.fecha and nueva_hora == turno.hora_inicio):
-        return jsonify({'error': 'Ese horario no está disponible'}), 409
-
-    hora_fin_min = _to_minutes(nueva_hora) + servicio.duracion_min
-    turno.fecha = nueva_fecha
-    turno.hora_inicio = nueva_hora
-    turno.hora_fin = f'{hora_fin_min // 60:02d}:{hora_fin_min % 60:02d}'
-    turno.estado = 'pendiente'
-    db.session.commit()
-    return jsonify(turno.to_dict())
-
 
 # ==================================================================
 #  MESA DE ENTRADA (admin) — requiere sesión de admin
