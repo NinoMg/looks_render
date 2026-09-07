@@ -2,7 +2,7 @@ const $ = sel => document.querySelector(sel);
 const fmt = n => '$' + Number(n).toLocaleString('es-AR');
 function esc(str) { const d = document.createElement('div'); d.textContent = str == null ? '' : String(str); return d.innerHTML; }
 
-const NUMERO_WHATSAPP = '2604693013';
+const NUMERO_WHATSAPP = window.NUMERO_WHATSAPP;
 function linkWhatsapp(mensaje) {
   return `https://wa.me/54${NUMERO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`;
 }

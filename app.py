@@ -11,6 +11,8 @@ from models import (
 )
 import seed as seed_module
 
+NUMERO_WHATSAPP = '2604693013'
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__)
@@ -59,7 +61,11 @@ def admin_required(fn):
 def _normalizar_telefono(telefono):
     return ''.join(c for c in (telefono or '') if c.isdigit())
 
+@app.context_processor
+def inject_globals():
+    return {'numero_whatsapp': NUMERO_WHATSAPP}
 
+    
 @app.post('/api/auth/login')
 def api_login():
     """Login único, solo para mesa de entrada — los peluqueros ya no
