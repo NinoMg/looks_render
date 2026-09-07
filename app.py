@@ -506,14 +506,22 @@ def api_agenda_publica(peluquero_id):
     p = Peluquero.query.filter_by(id=peluquero_id, activo=True).first()
     if not p:
         return jsonify({'error': 'Peluquero no encontrado'}), 404
-    fecha = _parse_fecha(request.args.get('fecha', '')) or date_cls.today()
-    turnos = Turno.query.filter_by(peluquero_id=peluquero_id, fecha=fecha).order_by(Turno.hora_inicio).all()
+
+    referencia = _parse_fecha(request.args.get('desde', '')) or date_cls.today()
+    desde = referencia - timedelta(days=referencia.weekday())  # lunes de esa semana
+    hasta = desde + timedelta(days=6)
+
+    turnos = Turno.query.filter(
+        Turno.peluquero_id == peluquero_id,
+        Turno.fecha >= desde, Turno.fecha <= hasta,
+    ).order_by(Turno.fecha, Turno.hora_inicio).all()
+
     return jsonify({
         'peluquero': p.to_dict(incluir_servicios=False),
-        'fecha': fecha.isoformat(),
+        'desde': desde.isoformat(),
+        'hasta': hasta.isoformat(),
         'turnos': [t.to_dict() for t in turnos],
     })
-
 
 # ==================================================================
 #  PÁGINAS (server-rendered, el JS de cada una llama a la API de arriba)

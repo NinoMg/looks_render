@@ -10,12 +10,18 @@
     <section class="section-tight">
       <div class="section-head">
         <h2 id="titulo-agenda">Agenda de {{ peluquero.nombre }}</h2>
-        <p>Tus turnos del día que elijas, para organizarte. Para cancelar, reprogramar o marcar un turno como atendido, avisale al encargado.</p>
+        <p>Tus turnos de la semana, para organizarte. Para cancelar, reprogramar o marcar un turno como atendido, avisale al encargado.</p>
       </div>
 
-      <div class="control-mesa">
-        <input type="date" id="input-fecha-agenda" onchange="cambiarFecha(this.value)">
+      <div class="nav-semana">
+        <button onclick="semanaAnterior()">‹ Semana anterior</button>
+        <strong id="rango-semana"></strong>
+        <button onclick="semanaSiguiente()">Semana siguiente ›</button>
       </div>
+
+<div style="overflow-x:auto;padding-bottom:6px;">
+  <div id="grilla-agenda"></div>
+</div>
 
       <div id="tabla-agenda" class="tabla-turnos"></div>
     </section>
