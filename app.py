@@ -539,7 +539,7 @@ def pagina_mi_turno():
     return render_template('mi_turno.html')
 
 
-@app.get('/login')
+@app.get('/administrador')
 def pagina_login():
     return render_template('login.html')
 
