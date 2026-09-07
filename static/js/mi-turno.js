@@ -16,7 +16,7 @@ async function api(path, opts = {}) {
 
 async function buscarTurno(e) {
   e.preventDefault();
-  const telefono = $('#input-telefono').value.trim();
+  const telefono = $('#input-telefono').value.replace(/\D/g, '');
   $('#mensaje-buscar').innerHTML = '';
   try {
     const turno = await api(`/api/turnos/buscar?telefono=${encodeURIComponent(telefono)}`);

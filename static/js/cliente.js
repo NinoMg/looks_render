@@ -265,7 +265,7 @@ async function confirmarTurno(e) {
   const servicio = p.servicios.find(s => s.id === state.servicioId);
 
   const nombre = $('#input-nombre').value.trim();
-  const telefono = $('#input-telefono').value.trim();
+  const telefono = $('#input-telefono').value.replace(/\D/g, '');
   if (!nombre || !telefono) return false;
 
   const btn = $('#btn-confirmar');

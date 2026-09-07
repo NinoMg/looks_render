@@ -56,6 +56,9 @@ def admin_required(fn):
         return fn(*a, **kw)
     return wrapper
 
+def _normalizar_telefono(telefono):
+    return ''.join(c for c in (telefono or '') if c.isdigit())
+
 
 @app.post('/api/auth/login')
 def api_login():
@@ -162,8 +165,7 @@ def api_crear_turno():
     fecha = _parse_fecha(data.get('fecha', ''))
     hora = (data.get('hora') or '').strip()
     cliente = (data.get('cliente') or '').strip()
-    telefono = (data.get('telefono') or '').strip()
-
+    telefono = _normalizar_telefono(data.get('telefono'))
     if not all([peluquero_id, servicio_id, fecha, hora, cliente, telefono]):
         return jsonify({'error': 'Faltan datos obligatorios'}), 400
     if len(cliente) > 120 or len(telefono) > 40:
@@ -198,7 +200,7 @@ def api_crear_turno():
 
 @app.get('/api/turnos/buscar')
 def api_buscar_turno():
-    telefono = (request.args.get('telefono') or '').strip()
+    telefono = _normalizar_telefono(request.args.get('telefono'))
     if not telefono:
         return jsonify({'error': 'Ingresá tu teléfono'}), 400
 
