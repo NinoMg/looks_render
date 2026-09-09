@@ -64,13 +64,9 @@
           <label>Color de tarjeta
             <select id="np-color"><option value="pink">Rosa</option><option value="cyan">Cyan</option><option value="navy">Navy</option></select>
           </label>
-          <label>Hora inicio <input type="time" id="np-hora-inicio" value="10:00" required></label>
-          <label>Hora fin <input type="time" id="np-hora-fin" value="19:00" required></label>
-          <label>Pausa desde (opcional) <input type="time" id="np-pausa-inicio"></label>
-          <label>Pausa hasta (opcional) <input type="time" id="np-pausa-fin"></label>
           <div class="full">
-            <div style="font-size:.8rem;color:rgba(27,25,38,.6);margin-bottom:6px;">Días de atención</div>
-            <div class="full" id="np-dias-checks" style="display:flex;gap:12px;flex-wrap:wrap;font-size:.85rem;"></div>
+            <div style="font-size:.8rem;color:rgba(27,25,38,.6);margin-bottom:6px;">Días y horario de atención (cada día puede tener su propio horario)</div>
+            <div class="full" id="np-horarios" style="display:flex;flex-direction:column;gap:2px;"></div>
           </div>
           <label class="full">Foto (opcional — JPG, PNG o WEBP, máx. 3 MB)
             <input type="file" id="np-foto" accept="image/jpeg,image/png,image/webp">

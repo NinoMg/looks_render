@@ -260,13 +260,53 @@ let editandoServicio = null;
 async function cargarPeluqueros() {
   state.peluqueros = await api('/api/mesa/peluqueros'); // trae también los suspendidos
   renderPeluqueros();
-  renderDiasChecks();
+  renderHorariosNuevo();
 }
 
-function renderDiasChecks() {
-  $('#np-dias-checks').innerHTML = DIAS.map((d, i) => `
-    <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" value="${i}" ${i < 5 ? 'checked' : ''}> ${d}</label>
-  `).join('');
+function filaHorarioDia(i, h) {
+  const activo = !!h;
+  const ini = h ? h.hora_inicio : '10:00';
+  const fin = h ? h.hora_fin : '19:00';
+  const pausaIni = h ? (h.pausa_inicio || '') : '';
+  const pausaFin = h ? (h.pausa_fin || '') : '';
+  return `
+    <div class="fila-horario-dia" data-dia="${i}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--line);">
+      <label style="display:flex;align-items:center;gap:6px;min-width:60px;font-weight:500;">
+        <input type="checkbox" class="chk-dia" data-dia="${i}" ${activo ? 'checked' : ''} onchange="toggleFilaHorario(this)">
+        ${DIAS[i]}
+      </label>
+      <span style="font-size:.78rem;color:rgba(27,25,38,.55);">de</span>
+      <input type="time" class="hd-inicio" value="${ini}" ${activo ? '' : 'disabled'} style="padding:6px;border-radius:6px;border:1px solid var(--line);">
+      <span style="font-size:.78rem;color:rgba(27,25,38,.55);">a</span>
+      <input type="time" class="hd-fin" value="${fin}" ${activo ? '' : 'disabled'} style="padding:6px;border-radius:6px;border:1px solid var(--line);">
+      <span style="font-size:.78rem;color:rgba(27,25,38,.55);">· pausa</span>
+      <input type="time" class="hd-pausa-inicio" title="Pausa desde (opcional)" value="${pausaIni}" ${activo ? '' : 'disabled'} style="padding:6px;border-radius:6px;border:1px solid var(--line);">
+      <span style="font-size:.78rem;color:rgba(27,25,38,.55);">a</span>
+      <input type="time" class="hd-pausa-fin" title="Pausa hasta (opcional)" value="${pausaFin}" ${activo ? '' : 'disabled'} style="padding:6px;border-radius:6px;border:1px solid var(--line);">
+    </div>
+  `;
+}
+
+function renderHorariosNuevo() {
+  $('#np-horarios').innerHTML = DIAS.map((d, i) => filaHorarioDia(i, i < 5 ? { hora_inicio: '10:00', hora_fin: '19:00' } : null)).join('');
+}
+
+function toggleFilaHorario(chk) {
+  const fila = chk.closest('.fila-horario-dia');
+  const activo = chk.checked;
+  fila.querySelectorAll('input[type="time"]').forEach(inp => inp.disabled = !activo);
+}
+
+function leerHorariosDeContenedor(contenedor) {
+  return Array.from(contenedor.querySelectorAll('.fila-horario-dia'))
+    .filter(fila => fila.querySelector('.chk-dia').checked)
+    .map(fila => ({
+      dia_semana: Number(fila.dataset.dia),
+      hora_inicio: fila.querySelector('.hd-inicio').value,
+      hora_fin: fila.querySelector('.hd-fin').value,
+      pausa_inicio: fila.querySelector('.hd-pausa-inicio').value || null,
+      pausa_fin: fila.querySelector('.hd-pausa-fin').value || null,
+    }));
 }
 
 function renderPeluqueros() {
@@ -330,7 +370,8 @@ function renderServicioMini(p, s) {
 }
 
 function renderFormEdicionPeluquero(p) {
-  const dias = p.dias_atencion || [];
+  const porDia = {};
+  (p.horarios || []).forEach(h => porDia[h.dia_semana] = h);
   return `
     <form class="form-nuevo-peluquero" style="margin-top:0;box-shadow:none;border:none;padding:0;" onsubmit="return guardarEdicionPeluquero(event, '${p.id}')">
       <label>Nombre completo <input type="text" id="ep-nombre-${p.id}" value="${escAttr(p.nombre)}" required></label>
@@ -342,14 +383,10 @@ function renderFormEdicionPeluquero(p) {
           <option value="navy" ${p.color === 'navy' ? 'selected' : ''}>Navy</option>
         </select>
       </label>
-      <label>Hora inicio <input type="time" id="ep-hora-inicio-${p.id}" value="${p.hora_inicio}" required></label>
-      <label>Hora fin <input type="time" id="ep-hora-fin-${p.id}" value="${p.hora_fin}" required></label>
-      <label>Pausa desde (opcional) <input type="time" id="ep-pausa-inicio-${p.id}" value="${p.pausa_inicio || ''}"></label>
-      <label>Pausa hasta (opcional) <input type="time" id="ep-pausa-fin-${p.id}" value="${p.pausa_fin || ''}"></label>
       <div class="full">
-        <div style="font-size:.8rem;color:rgba(27,25,38,.6);margin-bottom:6px;">Días de atención</div>
-        <div id="ep-dias-${p.id}" style="display:flex;gap:12px;flex-wrap:wrap;font-size:.85rem;">
-          ${DIAS.map((d, i) => `<label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" value="${i}" ${dias.includes(i) ? 'checked' : ''}> ${d}</label>`).join('')}
+        <div style="font-size:.8rem;color:rgba(27,25,38,.6);margin-bottom:6px;">Días y horario de atención (cada día puede tener su propio horario)</div>
+        <div class="full" id="ep-horarios-${p.id}" style="display:flex;flex-direction:column;gap:2px;">
+          ${DIAS.map((d, i) => filaHorarioDia(i, porDia[i])).join('')}
         </div>
       </div>
       <div id="mensaje-editar-${p.id}" class="full"></div>
@@ -373,7 +410,7 @@ function toggleEditarServicio(id) {
 
 async function guardarEdicionPeluquero(e, id) {
   e.preventDefault();
-  const dias = Array.from(document.querySelectorAll(`#ep-dias-${id} input:checked`)).map(c => Number(c.value));
+  const horarios = leerHorariosDeContenedor($(`#ep-horarios-${id}`));
   const msg = $(`#mensaje-editar-${id}`);
   try {
     await api(`/api/mesa/peluqueros/${id}`, {
@@ -382,11 +419,7 @@ async function guardarEdicionPeluquero(e, id) {
         nombre: $(`#ep-nombre-${id}`).value.trim(),
         especialidad: $(`#ep-especialidad-${id}`).value.trim(),
         color: $(`#ep-color-${id}`).value,
-        hora_inicio: $(`#ep-hora-inicio-${id}`).value,
-        hora_fin: $(`#ep-hora-fin-${id}`).value,
-        pausa_inicio: $(`#ep-pausa-inicio-${id}`).value || null,
-        pausa_fin: $(`#ep-pausa-fin-${id}`).value || null,
-        dias_atencion: dias,
+        horarios: horarios,
       }),
     });
     editandoPeluquero = null;
@@ -466,25 +499,21 @@ async function crearPeluquero(e) {
   e.preventDefault();
   const msg = $('#mensaje-nuevo-peluquero');
   msg.innerHTML = '';
-  const dias = Array.from(document.querySelectorAll('#np-dias-checks input:checked')).map(c => Number(c.value));
+  const horarios = leerHorariosDeContenedor($('#np-horarios'));
 
   const fd = new FormData();
   fd.append('id', $('#np-id').value.trim().toLowerCase());
   fd.append('nombre', $('#np-nombre').value.trim());
   fd.append('especialidad', $('#np-especialidad').value.trim());
   fd.append('color', $('#np-color').value);
-  fd.append('hora_inicio', $('#np-hora-inicio').value);
-  fd.append('hora_fin', $('#np-hora-fin').value);
-  if ($('#np-pausa-inicio').value) fd.append('pausa_inicio', $('#np-pausa-inicio').value);
-  if ($('#np-pausa-fin').value) fd.append('pausa_fin', $('#np-pausa-fin').value);
-  fd.append('dias_atencion', JSON.stringify(dias));
+  fd.append('horarios', JSON.stringify(horarios));
   const fotoInput = $('#np-foto');
   if (fotoInput.files[0]) fd.append('foto', fotoInput.files[0]);
 
   try {
     await api('/api/mesa/peluqueros', { method: 'POST', body: fd });
     $('#form-nuevo-peluquero').reset();
-    renderDiasChecks();
+    renderHorariosNuevo();
     await cargarPeluqueros();
   } catch (err) {
     msg.innerHTML = `<div class="error-msg">${esc(err.message)}</div>`;
