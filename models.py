@@ -47,9 +47,9 @@ class Peluquero(db.Model):
 
     activo = db.Column(db.Boolean, default=True)
 
-        servicios = db.relationship('Servicio', backref='peluquero', cascade='all, delete-orphan')
-        turnos = db.relationship('Turno', backref='peluquero', cascade='all, delete-orphan')
-        horarios = db.relationship('HorarioDia', backref='peluquero', cascade='all, delete-orphan', order_by='HorarioDia.dia_semana')
+    servicios = db.relationship('Servicio', backref='peluquero', cascade='all, delete-orphan')
+    turnos = db.relationship('Turno', backref='peluquero', cascade='all, delete-orphan')
+    horarios = db.relationship('HorarioDia', backref='peluquero', cascade='all, delete-orphan', order_by='HorarioDia.dia_semana')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -57,9 +57,38 @@ class Peluquero(db.Model):
     def check_password(self, password):
         return bool(self.password_hash) and check_password_hash(self.password_hash, password)
 
-     def dias_lista(self):
+    def _dias_lista_legacy(self):
+        if not self.dias_atencion:
+            return []
+        return [int(d) for d in self.dias_atencion.split(',') if d != '']
 
-     def to_dict(self, incluir_servicios=True):
+    def horario_dia(self, dia_semana):
+        return next((h for h in self.horarios if h.dia_semana == dia_semana), None)
+
+    def dias_lista(self):
+        return sorted(h.dia_semana for h in self.horarios)
+
+    def dias_texto(self):
+        idx = self.dias_lista()
+        if not idx:
+            return ''
+        nombres = [DIAS_SEMANA[i][:3].capitalize() for i in idx]
+        return ' · '.join(nombres)
+
+    def atiende_fecha(self, fecha: date_cls):
+        return self.horario_dia(fecha.weekday()) is not None
+
+    def horario_texto(self):
+        idx = self.dias_lista()
+        if not idx:
+            return ''
+        distintos = {(h.hora_inicio, h.hora_fin) for h in self.horarios}
+        if len(distintos) == 1:
+            ini, fin = distintos.pop()
+            return f'{ini} – {fin}'
+        return 'según el día'
+
+    def to_dict(self, incluir_servicios=True):
         if self.foto_blob:
             foto_url = f'/fotos-db/{self.id}'
         elif self.foto:
@@ -80,7 +109,6 @@ class Peluquero(db.Model):
             'horarios': [h.to_dict() for h in self.horarios],
             'activo': self.activo,
             'tiene_login': bool(self.username),
-        }
         }
         if incluir_servicios:
             data['servicios'] = [s.to_dict() for s in self.servicios]
@@ -105,6 +133,7 @@ class Servicio(db.Model):
             'precio': self.precio,
         }
 
+
 class HorarioDia(db.Model):
     __tablename__ = 'horarios_dia'
 
@@ -126,6 +155,7 @@ class HorarioDia(db.Model):
             'pausa_inicio': self.pausa_inicio,
             'pausa_fin': self.pausa_fin,
         }
+
 
 class Turno(db.Model):
     __tablename__ = 'turnos'
@@ -220,8 +250,8 @@ def horarios_disponibles(peluquero: Peluquero, servicio: Servicio, fecha: date_c
     turnos ya reservados (pendiente/confirmado/atendido)."""
 
     h = peluquero.horario_dia(fecha.weekday())
-        if not h:
-            return []
+    if not h:
+        return []
 
     inicio = _to_minutes(h.hora_inicio)
     fin = _to_minutes(h.hora_fin)
