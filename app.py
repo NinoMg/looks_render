@@ -377,7 +377,7 @@ def api_crear_peluquero():
     if db.session.get(Peluquero, pid):
         return jsonify({'error': 'Ya existe un peluquero con ese id'}), 409
 
-        p = Peluquero(
+    p = Peluquero(
         id=pid, nombre=nombre,
         especialidad=data.get('especialidad', ''),
         iniciales=data.get('iniciales') or nombre[:2].upper(),
