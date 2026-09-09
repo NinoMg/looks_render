@@ -6,9 +6,10 @@ from functools import wraps
 from flask import Flask, request, jsonify, session, render_template, redirect, url_for, send_from_directory, Response
 
 from models import (
-    db, Peluquero, Servicio, Turno, Admin, Settings,
+    db, Peluquero, Servicio, Turno, Admin, Settings, HorarioDia,
     get_setting, set_setting, horarios_disponibles, hay_solapamiento, _to_minutes,
 )
+
 import seed as seed_module
 
 NUMERO_WHATSAPP = '2604293912'
@@ -30,9 +31,28 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
+def _backfill_horarios():
+    """A los peluqueros que ya existían con el horario único viejo
+    (dias_atencion + hora_inicio/hora_fin) se les crea una fila de
+    HorarioDia por cada día que ya atendían, con ese mismo horario.
+    No toca a quien ya tenga horarios cargados por día."""
+    for p in Peluquero.query.filter(~Peluquero.horarios.any()).all():
+        dias = p._dias_lista_legacy()
+        if not dias:
+            continue
+        for d in dias:
+            db.session.add(HorarioDia(
+                peluquero_id=p.id, dia_semana=d,
+                hora_inicio=p.hora_inicio, hora_fin=p.hora_fin,
+                pausa_inicio=p.pausa_inicio, pausa_fin=p.pausa_fin,
+            ))
+    db.session.commit()
+
+
 with app.app_context():
     db.create_all()
     seed_module.seed()
+    _backfill_horarios()
 
 
 # ==================================================================
@@ -321,6 +341,21 @@ def _a_entero(valor):
     limpio = str(valor).strip().replace('.', '').replace(',', '')
     return int(limpio)
 
+def _reemplazar_horarios(p, horarios_raw):
+    """Recibe una lista de horarios por día (uno o varios), del tipo
+    [{"dia_semana": 0, "hora_inicio": "09:00", "hora_fin": "13:00"}, ...]
+    y reemplaza por completo los horarios del peluquero. Si un día no
+    aparece en la lista, se entiende que ese día no atiende."""
+    horarios = json.loads(horarios_raw) if isinstance(horarios_raw, str) else horarios_raw
+    p.horarios = []
+    for h in horarios:
+        p.horarios.append(HorarioDia(
+            dia_semana=int(h['dia_semana']),
+            hora_inicio=h['hora_inicio'],
+            hora_fin=h['hora_fin'],
+            pausa_inicio=h.get('pausa_inicio') or None,
+            pausa_fin=h.get('pausa_fin') or None,
+        ))
 
 @app.get('/api/mesa/peluqueros')
 @admin_required
@@ -342,20 +377,14 @@ def api_crear_peluquero():
     if db.session.get(Peluquero, pid):
         return jsonify({'error': 'Ya existe un peluquero con ese id'}), 409
 
-    dias_raw = data.get('dias_atencion', [0, 1, 2, 3, 4])
-    dias = json.loads(dias_raw) if isinstance(dias_raw, str) else dias_raw
-
-    p = Peluquero(
+        p = Peluquero(
         id=pid, nombre=nombre,
         especialidad=data.get('especialidad', ''),
         iniciales=data.get('iniciales') or nombre[:2].upper(),
         color=data.get('color', 'pink'),
-        dias_atencion=','.join(str(d) for d in dias),
-        hora_inicio=data.get('hora_inicio', '10:00'),
-        hora_fin=data.get('hora_fin', '19:00'),
-        pausa_inicio=data.get('pausa_inicio') or None,
-        pausa_fin=data.get('pausa_fin') or None,
     )
+    _reemplazar_horarios(p, data.get('horarios', []))
+
     if data.get('username') and data.get('password'):
         p.username = data['username']
         p.set_password(data['password'])
@@ -386,18 +415,11 @@ def api_crear_peluquero():
 def api_editar_peluquero(peluquero_id):
     p = Peluquero.query.get_or_404(peluquero_id)
     data = _datos_entrada()
-    for campo in ['nombre', 'especialidad', 'iniciales', 'color', 'hora_inicio', 'hora_fin']:
+    for campo in ['nombre', 'especialidad', 'iniciales', 'color']:
         if campo in data and data.get(campo) not in (None, ''):
             setattr(p, campo, data[campo])
-    # la pausa/almuerzo sí se puede vaciar a propósito (mandando '' o null)
-    for campo in ['pausa_inicio', 'pausa_fin']:
-        if campo in data:
-            valor = data.get(campo)
-            setattr(p, campo, valor if valor not in (None, '') else None)
-    if 'dias_atencion' in data:
-        dias_raw = data['dias_atencion']
-        dias = json.loads(dias_raw) if isinstance(dias_raw, str) else dias_raw
-        p.dias_atencion = ','.join(str(d) for d in dias)
+    if 'horarios' in data:
+        _reemplazar_horarios(p, data['horarios'])
     if 'activo' in data:
         p.activo = data['activo'] in (True, 'true', '1', 1)
 
