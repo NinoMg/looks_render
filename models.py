@@ -47,8 +47,9 @@ class Peluquero(db.Model):
 
     activo = db.Column(db.Boolean, default=True)
 
-    servicios = db.relationship('Servicio', backref='peluquero', cascade='all, delete-orphan')
-    turnos = db.relationship('Turno', backref='peluquero', cascade='all, delete-orphan')
+        servicios = db.relationship('Servicio', backref='peluquero', cascade='all, delete-orphan')
+        turnos = db.relationship('Turno', backref='peluquero', cascade='all, delete-orphan')
+        horarios = db.relationship('HorarioDia', backref='peluquero', cascade='all, delete-orphan', order_by='HorarioDia.dia_semana')
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -56,22 +57,9 @@ class Peluquero(db.Model):
     def check_password(self, password):
         return bool(self.password_hash) and check_password_hash(self.password_hash, password)
 
-    def dias_lista(self):
-        if not self.dias_atencion:
-            return []
-        return [int(d) for d in self.dias_atencion.split(',') if d != '']
+     def dias_lista(self):
 
-    def dias_texto(self):
-        idx = self.dias_lista()
-        if not idx:
-            return ''
-        nombres = [DIAS_SEMANA[i][:3].capitalize() for i in sorted(idx)]
-        return ' · '.join(nombres)
-
-    def atiende_fecha(self, fecha: date_cls):
-        return fecha.weekday() in self.dias_lista()
-
-    def to_dict(self, incluir_servicios=True):
+     def to_dict(self, incluir_servicios=True):
         if self.foto_blob:
             foto_url = f'/fotos-db/{self.id}'
         elif self.foto:
@@ -88,13 +76,11 @@ class Peluquero(db.Model):
             'foto_url': foto_url,
             'dias': self.dias_texto(),
             'dias_atencion': self.dias_lista(),
-            'horario_texto': f'{self.hora_inicio} – {self.hora_fin}',
-            'hora_inicio': self.hora_inicio,
-            'hora_fin': self.hora_fin,
-            'pausa_inicio': self.pausa_inicio,
-            'pausa_fin': self.pausa_fin,
+            'horario_texto': self.horario_texto(),
+            'horarios': [h.to_dict() for h in self.horarios],
             'activo': self.activo,
             'tiene_login': bool(self.username),
+        }
         }
         if incluir_servicios:
             data['servicios'] = [s.to_dict() for s in self.servicios]
@@ -119,6 +105,27 @@ class Servicio(db.Model):
             'precio': self.precio,
         }
 
+class HorarioDia(db.Model):
+    __tablename__ = 'horarios_dia'
+
+    id = db.Column(db.Integer, primary_key=True)
+    peluquero_id = db.Column(db.String(40), db.ForeignKey('peluqueros.id'), nullable=False)
+    dia_semana = db.Column(db.Integer, nullable=False)  # 0=lunes ... 6=domingo
+    hora_inicio = db.Column(db.String(5), nullable=False)
+    hora_fin = db.Column(db.String(5), nullable=False)
+    pausa_inicio = db.Column(db.String(5), nullable=True)
+    pausa_fin = db.Column(db.String(5), nullable=True)
+
+    __table_args__ = (db.UniqueConstraint('peluquero_id', 'dia_semana', name='uq_peluquero_dia'),)
+
+    def to_dict(self):
+        return {
+            'dia_semana': self.dia_semana,
+            'hora_inicio': self.hora_inicio,
+            'hora_fin': self.hora_fin,
+            'pausa_inicio': self.pausa_inicio,
+            'pausa_fin': self.pausa_fin,
+        }
 
 class Turno(db.Model):
     __tablename__ = 'turnos'
@@ -212,15 +219,16 @@ def horarios_disponibles(peluquero: Peluquero, servicio: Servicio, fecha: date_c
     respetando horario de atención, pausa/almuerzo, y evitando choques con
     turnos ya reservados (pendiente/confirmado/atendido)."""
 
-    if not peluquero.atiende_fecha(fecha):
-        return []
+    h = peluquero.horario_dia(fecha.weekday())
+        if not h:
+            return []
 
-    inicio = _to_minutes(peluquero.hora_inicio)
-    fin = _to_minutes(peluquero.hora_fin)
+    inicio = _to_minutes(h.hora_inicio)
+    fin = _to_minutes(h.hora_fin)
     duracion = servicio.duracion_min
 
-    pausa_ini = _to_minutes(peluquero.pausa_inicio) if peluquero.pausa_inicio else None
-    pausa_fin = _to_minutes(peluquero.pausa_fin) if peluquero.pausa_fin else None
+    pausa_ini = _to_minutes(h.pausa_inicio) if h.pausa_inicio else None
+    pausa_fin = _to_minutes(h.pausa_fin) if h.pausa_fin else None
 
     ocupados = Turno.query.filter(
         Turno.peluquero_id == peluquero.id,
