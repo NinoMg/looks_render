@@ -265,26 +265,44 @@ async function cargarPeluqueros() {
 
 function filaHorarioDia(i, h) {
   const activo = !!h;
-  const ini = h ? h.hora_inicio : '10:00';
-  const fin = h ? h.hora_fin : '19:00';
+  const horaIni = h ? h.hora_inicio : '09:00';
+  const horaFin = h ? h.hora_fin : '18:00';
   const pausaIni = h ? (h.pausa_inicio || '') : '';
   const pausaFin = h ? (h.pausa_fin || '') : '';
+  const tienePausa = !!(pausaIni && pausaFin);
   return `
-    <div class="fila-horario-dia" data-dia="${i}" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--line);">
-      <label style="display:flex;align-items:center;gap:6px;min-width:60px;font-weight:500;">
+    <div class="fila-horario-dia" data-dia="${i}" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:4px 0;">
+      <label style="display:flex;align-items:center;gap:4px;min-width:70px;">
         <input type="checkbox" class="chk-dia" data-dia="${i}" ${activo ? 'checked' : ''} onchange="toggleFilaHorario(this)">
         ${DIAS[i]}
       </label>
-      <span style="font-size:.78rem;color:rgba(27,25,38,.55);">de</span>
-      <input type="time" class="hd-inicio" value="${ini}" ${activo ? '' : 'disabled'} style="padding:6px;border-radius:6px;border:1px solid var(--line);">
-      <span style="font-size:.78rem;color:rgba(27,25,38,.55);">a</span>
-      <input type="time" class="hd-fin" value="${fin}" ${activo ? '' : 'disabled'} style="padding:6px;border-radius:6px;border:1px solid var(--line);">
-      <span style="font-size:.78rem;color:rgba(27,25,38,.55);">· pausa</span>
-      <input type="time" class="hd-pausa-inicio" title="Pausa desde (opcional)" value="${pausaIni}" ${activo ? '' : 'disabled'} style="padding:6px;border-radius:6px;border:1px solid var(--line);">
-      <span style="font-size:.78rem;color:rgba(27,25,38,.55);">a</span>
-      <input type="time" class="hd-pausa-fin" title="Pausa hasta (opcional)" value="${pausaFin}" ${activo ? '' : 'disabled'} style="padding:6px;border-radius:6px;border:1px solid var(--line);">
+      <input type="time" class="hd-inicio" value="${horaIni}" ${activo ? '' : 'disabled'} style="padding:6px;border-radius:6px;border:1px solid var(--line);">
+      <span>a</span>
+      <input type="time" class="hd-fin" value="${horaFin}" ${activo ? '' : 'disabled'} style="padding:6px;border-radius:6px;border:1px solid var(--line);">
+      <label style="display:flex;align-items:center;gap:4px;font-size:.78rem;color:rgba(27,25,38,.55);">
+        <input type="checkbox" class="chk-pausa" ${tienePausa ? 'checked' : ''} ${activo ? '' : 'disabled'} onchange="togglePausaHorario(this)">
+        pausa
+      </label>
+      <input type="time" class="hd-pausa-inicio" title="Pausa desde" value="${pausaIni}" ${activo && tienePausa ? '' : 'disabled'} style="padding:6px;border-radius:6px;border:1px solid var(--line);">
+      <span>a</span>
+      <input type="time" class="hd-pausa-fin" title="Pausa hasta" value="${pausaFin}" ${activo && tienePausa ? '' : 'disabled'} style="padding:6px;border-radius:6px;border:1px solid var(--line);">
     </div>
   `;
+}
+
+function togglePausaHorario(chk) {
+  const fila = chk.closest('.fila-horario-dia');
+  const ini = fila.querySelector('.hd-pausa-inicio');
+  const fin = fila.querySelector('.hd-pausa-fin');
+  ini.disabled = !chk.checked;
+  fin.disabled = !chk.checked;
+  if (!chk.checked) {
+    ini.value = '';
+    fin.value = '';
+  } else {
+    if (!ini.value) ini.value = '13:00';
+    if (!fin.value) fin.value = '14:00';
+  }
 }
 
 function renderHorariosNuevo() {
