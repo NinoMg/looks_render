@@ -346,14 +346,12 @@ def _a_entero(valor):
     return int(limpio)
 
 def _reemplazar_horarios(p, horarios_raw):
-    """Recibe una lista de horarios por día (uno o varios), del tipo
-    [{"dia_semana": 0, "hora_inicio": "09:00", "hora_fin": "13:00"}, ...]
-    y reemplaza por completo los horarios del peluquero. Si un día no
-    aparece en la lista, se entiende que ese día no atiende."""
     horarios = json.loads(horarios_raw) if isinstance(horarios_raw, str) else horarios_raw
-    p.horarios = []
+    HorarioDia.query.filter_by(peluquero_id=p.id).delete()
+    db.session.flush()  # asegura que el DELETE llegue a la base antes de los INSERT nuevos
     for h in horarios:
-        p.horarios.append(HorarioDia(
+        db.session.add(HorarioDia(
+            peluquero_id=p.id,
             dia_semana=int(h['dia_semana']),
             hora_inicio=h['hora_inicio'],
             hora_fin=h['hora_fin'],
