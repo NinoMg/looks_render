@@ -410,15 +410,15 @@ function toggleEditarServicio(id) {
 
 async function guardarEdicionPeluquero(e, id) {
   e.preventDefault();
-  const horarios = leerHorariosDeContenedor($(`#ep-horarios-${id}`));
-  const msg = $(`#mensaje-editar-${id}`);
+  const horarios = leerHorariosDeContenedor(document.getElementById(`ep-horarios-${id}`));
+  const msg = document.getElementById(`mensaje-editar-${id}`);
   try {
     await api(`/api/mesa/peluqueros/${id}`, {
       method: 'PUT',
       body: JSON.stringify({
-        nombre: $(`#ep-nombre-${id}`).value.trim(),
-        especialidad: $(`#ep-especialidad-${id}`).value.trim(),
-        color: $(`#ep-color-${id}`).value,
+        nombre: document.getElementById(`ep-nombre-${id}`).value.trim(),
+        especialidad: document.getElementById(`ep-especialidad-${id}`).value.trim(),
+        color: document.getElementById(`ep-color-${id}`).value,
         horarios: horarios,
       }),
     });
