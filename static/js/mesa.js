@@ -8,7 +8,7 @@ async function api(path, opts = {}) {
   const esFormData = opts.body instanceof FormData;
   const headers = esFormData ? {} : { 'Content-Type': 'application/json' };
   const res = await fetch(path, { headers, credentials: 'same-origin', ...opts });
-  if (res.status === 401) { window.location.href = '/login'; throw new Error('Sesión vencida'); }
+  if (res.status === 401) { window.location.href = '/administrador'; throw new Error('Sesión vencida'); }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Error de red');
   return data;
@@ -24,7 +24,7 @@ function guardarEnCache(turnos) {
 
 async function logout() {
   await api('/api/auth/logout', { method: 'POST' });
-  window.location.href = '/login';
+  window.location.href = '/administrador';
 }
 
 function cambiarTab(t) {

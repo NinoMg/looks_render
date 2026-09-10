@@ -160,6 +160,16 @@ class HorarioDia(db.Model):
 class Turno(db.Model):
     __tablename__ = 'turnos'
 
+    __table_args__ = (
+        db.Index(
+            'uq_turno_activo_por_horario',
+            'peluquero_id', 'fecha', 'hora_inicio',
+            unique=True,
+            sqlite_where=db.text("estado != 'cancelado'"),
+            postgresql_where=db.text("estado != 'cancelado'"),
+        ),
+    )
+
     id = db.Column(db.Integer, primary_key=True)
     codigo = db.Column(db.String(6), unique=True, default=_codigo_turno)
 

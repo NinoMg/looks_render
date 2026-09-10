@@ -220,7 +220,11 @@ def api_crear_turno():
         cliente=cliente, telefono=telefono, estado='pendiente',
     )
     db.session.add(turno)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'error': 'Ese horario ya no está disponible, elegí otro.'}), 409
     return jsonify(turno.to_dict()), 201
 
 
