@@ -257,8 +257,11 @@ def horarios_disponibles(peluquero: Peluquero, servicio: Servicio, fecha: date_c
     fin = _to_minutes(h.hora_fin)
     duracion = servicio.duracion_min
 
-    pausa_ini = _to_minutes(h.pausa_inicio) if h.pausa_inicio else None
-    pausa_fin = _to_minutes(h.pausa_fin) if h.pausa_fin else None
+    if h.pausa_inicio and h.pausa_fin:
+        pausa_ini = _to_minutes(h.pausa_inicio)
+        pausa_fin = _to_minutes(h.pausa_fin)
+    else:
+        pausa_ini = pausa_fin = None
 
     ocupados = Turno.query.filter(
         Turno.peluquero_id == peluquero.id,
