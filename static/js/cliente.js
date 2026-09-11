@@ -4,7 +4,7 @@ const fmt = n => '$' + Number(n).toLocaleString('es-AR');
 
 const NUMERO_WHATSAPP = window.NUMERO_WHATSAPP;
 function linkWhatsapp(mensaje) {
-  return `https://wa.me/54${NUMERO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`;
+  return `https://wa.me/549${NUMERO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`;
 }
 
 // Escapa cualquier valor antes de insertarlo en innerHTML (evita XSS con

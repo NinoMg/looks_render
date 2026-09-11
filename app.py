@@ -12,7 +12,7 @@ from models import (
 
 import seed as seed_module
 
-NUMERO_WHATSAPP = '2604293912'
+NUMERO_WHATSAPP = '2604693013'
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -502,13 +502,26 @@ def api_borrar_servicio(servicio_id):
 
 # ---- recordatorio por WhatsApp (link manual, sin API externa) ----
 
+def _numero_whatsapp_ar(telefono):
+    """Arma el número para wa.me a partir de un teléfono argentino.
+    Asume que viene sin 0 de área ni 15 (como se le pide al cliente
+    en el formulario) y le agrega el 549 que exige WhatsApp para
+    celulares de Argentina."""
+    numero = ''.join(c for c in (telefono or '') if c.isdigit())
+    if numero.startswith('549'):
+        return numero
+    if numero.startswith('54'):
+        numero = numero[2:]
+    if numero.startswith('9'):
+        numero = numero[1:]
+    if numero.startswith('0'):
+        numero = numero[1:]
+    return '549' + numero
+
+
 def _link_whatsapp(telefono, mensaje):
-    solo_numeros = ''.join(c for c in telefono if c.isdigit())
-    # si no viene con código de país, asumimos Argentina (+54). Ajustable según el negocio.
-    if not solo_numeros.startswith('54'):
-        solo_numeros = '54' + solo_numeros
     from urllib.parse import quote
-    return f'https://wa.me/{solo_numeros}?text={quote(mensaje)}'
+    return f'https://wa.me/{_numero_whatsapp_ar(telefono)}?text={quote(mensaje)}'
 
 
 @app.get('/api/mesa/turnos/<int:turno_id>/recordatorio')

@@ -4,7 +4,7 @@ function esc(str) { const d = document.createElement('div'); d.textContent = str
 
 const NUMERO_WHATSAPP = window.NUMERO_WHATSAPP;
 function linkWhatsapp(mensaje) {
-  return `https://wa.me/54${NUMERO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`;
+  return `https://wa.me/549${NUMERO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`;
 }
 
 async function api(path, opts = {}) {
