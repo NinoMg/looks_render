@@ -12,7 +12,7 @@ from models import (
 
 import seed as seed_module
 
-NUMERO_WHATSAPP = '2604693013'
+NUMERO_WHATSAPP = '2604293912'
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
