@@ -65,7 +65,7 @@ async function cargarPeluqueros() {
 function renderPeluqueros() {
   $('#grid-peluqueros').innerHTML = state.peluqueros.map((p, i) => `
     <div class="card-peluquero ${p.color}">
-      <div class="foto-wrap ${p.color}">
+      <div class="foto-wrap ${p.color}" onclick="elegirPeluquero('${p.id}')">
         <div class="badge-logo"><img src="/fotos/looks_logo.png" alt="Looks"></div>
         ${p.foto_url ? `<img src="${esc(p.foto_url)}" alt="${esc(p.nombre)}">` : `<div class="foto-placeholder">${esc(p.iniciales)}</div>`}
         <div class="shine"></div>

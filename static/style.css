@@ -75,7 +75,7 @@ section{padding:56px 0;}
 .card-peluquero.navy{border-color:var(--navy);}
 .card-peluquero:hover{transform:translateY(-4px) rotate(-1deg);}
 
-.foto-wrap{position:relative;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.foto-wrap{position:relative;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;}
 .foto-wrap img{width:100%;height:100%;object-fit:cover;display:block;}
 .foto-wrap.pink{background:linear-gradient(160deg,#F6C1CE,var(--pink));}
 .foto-wrap.cyan{background:linear-gradient(160deg,#C9F0F5,var(--cyan));}
