@@ -164,7 +164,7 @@ section{padding:56px 0;}
 .tabla-turnos{display:flex;flex-direction:column;gap:10px;}
 .fila-turno{display:grid;grid-template-columns:70px 1fr 130px 1fr 90px 90px 200px;gap:14px;align-items:center;background:var(--cream-2);color:var(--ink);border-radius:10px;padding:14px 16px;box-shadow:var(--shadow);font-size:.88rem;border:1px solid var(--line);}
 .fila-turno .hora{font-family:'Space Mono',monospace;font-weight:700;}
-.fila-turno .cliente .tel{display:block;font-size:.75rem;color:rgba(27,25,38,.5);}
+.fila-turno .cliente .tel{display:block;font-size:.8rem;color:rgba(27,25,38,.7);font-weight:500;}
 .tag-peluquero{font-size:.72rem;padding:4px 8px;border-radius:999px;width:fit-content;}
 .tag-peluquero.pink{background:var(--pink);color:var(--ink);}
 .tag-peluquero.cyan{background:var(--cyan);color:var(--navy);}
